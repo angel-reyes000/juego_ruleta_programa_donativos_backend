@@ -1,7 +1,7 @@
 import { pool } from '../database/db.js';
-import type { Request, Response } from 'express'; 
+import type { NextFunction, Request, Response } from 'express'; 
 import bcrypt from 'bcrypt';
-import jsonwebtoken from 'jsonwebtoken'; 
+import jsonwebtoken, { type JwtPayload } from 'jsonwebtoken'; 
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,6 +12,10 @@ interface User <T> {
     email: T
     password: T 
     phone_number: T
+}
+
+interface RequestAuth extends Request {
+    user: string | JwtPayload
 }
 
 export async function getUsers (req: Request, res: Response) {
@@ -123,6 +127,7 @@ export async function loginUser (req: Request, res: Response) {
                 id: user.id,
                 name: user.name,
                 last_name: user.last_name,
+                email: user.email,
                 phone_number: user.phone_number,
                 created_at: user.created_at,
             },
@@ -135,6 +140,31 @@ export async function loginUser (req: Request, res: Response) {
         return res.status(200).json({
             "token": token
         })
+
+    } catch (error) {
+        console.log("Error in loginUser backend: ", error)
+        return res.status(400).json({
+            "error": error
+        })
+    }
+}
+
+export async function auth (req: RequestAuth, res: Response, next: NextFunction) {
+    try {
+        const token: string | undefined = req.headers.authorization?.split(" ")[1];
+
+        console.log(token)
+
+        if (!token) {
+            res.status(400).json({
+                "error": "No token"
+            })
+        }
+
+        const decoded = jsonwebtoken.verify(token!, process.env.JWT_SECRET!)
+
+        req.user = decoded;
+        next()
 
     } catch (error) {
         console.log("Error in loginUser backend: ", error)
