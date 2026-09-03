@@ -3,7 +3,7 @@ import cors from 'cors';
 import { connectionDB } from './database/db.js';
 import { getUsers, postUser, loginUser, auth } from './controllers/user.js'
 import { getDataUser } from './controllers/dataUser.js';
-import { donation } from './controllers/donation.js';
+import { paymentIntent, createPayment } from './controllers/donations.js';
 
 const app = express()
 
@@ -20,8 +20,12 @@ app.post("/api/loginUser", loginUser);
 //MY ACCOUNT
 app.get("/api/getDataUser",  auth, getDataUser);
 
+//Intent payment
+app.post("/api/paymentIntent", auth, paymentIntent);
+
 //Create payment
-app.post("/api/createPayment", auth, donation)
+app.post("/api/createPayment", auth, createPayment);
+
 
 
 app.listen("4000", async () => {
