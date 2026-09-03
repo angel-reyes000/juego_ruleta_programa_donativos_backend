@@ -67,8 +67,6 @@ export async function createPayment (req: RequestAuth, res: Response) {
 
         const { amount, card_holder } = req.body;
 
-        console.log("DATA: ", amount, card_holder)
-
         if (!amount || amount < 10) {
             return res.status(400).json({
                 "error": "La cantidad debe ser mayor de 10MXN."
