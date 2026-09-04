@@ -127,6 +127,7 @@ export async function loginUser (req: Request, res: Response) {
                 id: user.id,
                 name: user.name,
                 last_name: user.last_name,
+                role: user.role,
                 email: user.email,
                 phone_number: user.phone_number,
                 created_at: user.created_at,
