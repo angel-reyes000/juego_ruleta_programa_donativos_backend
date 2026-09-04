@@ -161,10 +161,16 @@ export async function auth (req: RequestAuth, res: Response, next: NextFunction)
             })
         }
 
-        const decoded = jsonwebtoken.verify(token!, process.env.JWT_SECRET!)
-
-        req.user = decoded;
-        next()
+        try {
+            const decoded = jsonwebtoken.verify(token!, process.env.JWT_SECRET!)
+            req.user = decoded;
+            next()
+        } catch (error) {
+            console.log("Error at validate token: ", error)
+            return res.status(400).json({
+                "error": "Tu sesion a expirado."
+            })
+        }
 
     } catch (error) {
         console.log("Error in loginUser backend: ", error)
