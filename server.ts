@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { connectionDB } from './database/db.js';
-import { getUsers, postUser, loginUser, auth } from './controllers/user.js'
-import { getDataUser } from './controllers/dataUser.js';
-import { paymentIntent, createPayment } from './controllers/donations.js';
+import { getUsers, postUser, loginUser, auth } from './controllers/users/user.js'
+import { getDataUser } from './controllers/users/dataUser.js';
+import { paymentIntent, createPayment } from './controllers/users/donations.js';
 
 const app = express()
 
