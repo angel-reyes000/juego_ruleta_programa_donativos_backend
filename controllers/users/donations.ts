@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import Stripe from "stripe"
-import { pool } from "../database/db.js"
+import { pool } from "../../database/db.js"
 
 interface RequestAuth extends Request {
     user: {

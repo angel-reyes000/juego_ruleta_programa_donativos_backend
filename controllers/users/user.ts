@@ -1,4 +1,4 @@
-import { pool } from '../database/db.js';
+import { pool } from '../../database/db.js';
 import type { NextFunction, Request, Response } from 'express'; 
 import bcrypt from 'bcrypt';
 import jsonwebtoken, { type JwtPayload } from 'jsonwebtoken'; 
