@@ -4,7 +4,8 @@ import { connectionDB } from './database/db.js';
 import { getUsers, postUser, loginUser, auth } from './controllers/users/user.js'
 import { getDataUser } from './controllers/users/dataUser.js';
 import { paymentIntent, createPayment } from './controllers/users/donations.js';
-import { getGames, postGames } from './controllers/games/game.js';
+import { getGames, postGames, updateGame } from './controllers/games/game.js';
+import { getPrizes, postPrize } from './controllers/games/prize.js';
 
 const app = express()
 
@@ -30,7 +31,11 @@ app.post("/api/createPayment", auth, createPayment);
 //Games
 app.get("/api/getGames", auth, getGames);
 app.post("/api/postGames", auth, postGames);
+app.put("/api/updateGame", auth, updateGame);
 
+//Prizes
+app.get("/api/getPrizes", auth, getPrizes);
+app.post("/api/postPrize", auth, postPrize);
 
 app.listen("4000", async () => {
     try{
