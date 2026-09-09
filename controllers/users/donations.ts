@@ -21,9 +21,9 @@ export async function paymentIntent (req: Request, res: Response) {
         
         const { amount, card_holder } = req.body;
 
-        if (!amount || amount < 10) {
+        if (!amount || amount < 100) {
             return res.status(400).json({
-                "error": "La cantidad debe ser mayor de 10MXN."
+                "error": "La cantidad debe ser mayor de $100MXN."
             })
         }
 
@@ -55,7 +55,7 @@ export async function paymentIntent (req: Request, res: Response) {
     }
 }
 
-export async function createPayment (req: RequestAuth, res: Response) {
+export async function postDonation (req: RequestAuth, res: Response) {
     try {
         const token = req.headers.authorization?.split(" ")[1];
 
