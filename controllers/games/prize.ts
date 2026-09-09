@@ -129,3 +129,35 @@ export async function postPrizes (gameID: number, prize_list: Prize[]) {
         console.log("Error in postPrizes backend: ", error);
     }
 }
+
+export async function deletePrize (req: RequestAuth, res: Response) {
+    try {
+        const roleUser = req.user.role;
+
+        if (roleUser !== 'admin') {
+            return res.status(400).json({
+                "error": "No tienes permiso para crear"
+            })
+        }
+
+        const { prize_id, game_id } = req.body;
+
+        const query = `DELETE FROM prizes WHERE id = $1 AND game_id = $2 RETURNING *`;
+
+        const values = [prize_id, game_id];
+
+        const response = await pool.query(query, values);
+
+        const data = response.rows[0];
+
+        return res.status(200).json(
+            data
+        )
+
+    } catch (error) {
+        console.log("Error in deletePrize: ", error)
+        return res.status(400).json({
+            "error": "Error al eliminar premio del juego."
+        })
+    }
+}
