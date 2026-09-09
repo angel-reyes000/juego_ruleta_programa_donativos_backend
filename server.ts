@@ -3,7 +3,7 @@ import cors from 'cors';
 import { connectionDB } from './database/db.js';
 import { getUsers, postUser, loginUser, auth } from './controllers/users/user.js'
 import { getDataUser } from './controllers/users/dataUser.js';
-import { paymentIntent, createPayment } from './controllers/users/donations.js';
+import { paymentIntent, postDonation } from './controllers/users/donations.js';
 import { getGames, postGames, updateGame } from './controllers/games/game.js';
 import { deletePrize, getPrizes, postPrize } from './controllers/games/prize.js';
 
@@ -26,7 +26,7 @@ app.get("/api/getDataUser",  auth, getDataUser);
 app.post("/api/paymentIntent", auth, paymentIntent);
 
 //Create payment
-app.post("/api/createPayment", auth, createPayment);
+app.post("/api/createPayment", auth, postDonation);
 
 //Games
 app.get("/api/getGames", auth, getGames);
