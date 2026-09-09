@@ -19,7 +19,7 @@ export async function paymentIntent (req: Request, res: Response) {
             })
         }
         
-        const { amount, card_holder } = req.body;
+        const { amount, card_holder, check_box } = req.body;
 
         if (!amount || amount < 100) {
             return res.status(400).json({
@@ -30,6 +30,12 @@ export async function paymentIntent (req: Request, res: Response) {
         if (!card_holder) {
             return res.status(400).json({
                 "error": "Campo faltante: Nombre y apellido de tarjetahabiente."
+            })
+        }
+
+        if (!check_box) {
+            return res.status(400).json({
+                "error": "Debes aceptar terminos y condiciones."
             })
         }
 
