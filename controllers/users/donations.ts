@@ -28,6 +28,12 @@ export async function paymentIntent (req: Request, res: Response) {
             })
         }
 
+        if (!amount || amount > 10000) {
+            return res.status(400).json({
+                "error": "Para donar cantidades superiores a $10,000 MXN contactenos."
+            })
+        }
+
         if (!card_holder) {
             return res.status(400).json({
                 "error": "Campo faltante: Nombre y apellido de tarjetahabiente."
@@ -91,6 +97,12 @@ export async function postDonation (req: RequestAuth, res: Response) {
         if (!amount || amount < 100) {
             return res.status(400).json({
                 "error": "La cantidad debe ser mayor de 100MXN."
+            })
+        }
+
+        if (!amount || amount > 10000) {
+            return res.status(400).json({
+                "error": "Para donar cantidades superiores a $10,000 MXN contactenos."
             })
         }
 
