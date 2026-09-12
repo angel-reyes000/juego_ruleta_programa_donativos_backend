@@ -1,6 +1,7 @@
 import type { Request, Response } from "express"
 import Stripe from "stripe"
 import { pool } from "../../database/db.js"
+import { postTickets } from "../games/ticket.js"
 
 interface RequestAuth extends Request {
     user: {
@@ -39,6 +40,20 @@ export async function paymentIntent (req: Request, res: Response) {
             })
         }
 
+        let total_amount = amount;
+        while (true) {
+            total_amount -= 100;
+            if (total_amount < 0) {
+                return res.status(400).json({
+                    "error": "Solo se aceptan cantidades en múltiplos de $100 (ej. $100, $200, $300)."
+                })
+            } else if (total_amount === 0) {
+                break
+            } else {
+                continue
+            }
+        }
+
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
         const paymentIntent = await stripe.paymentIntents.create({
@@ -73,9 +88,9 @@ export async function postDonation (req: RequestAuth, res: Response) {
 
         const { amount, card_holder } = req.body;
 
-        if (!amount || amount < 10) {
+        if (!amount || amount < 100) {
             return res.status(400).json({
-                "error": "La cantidad debe ser mayor de 10MXN."
+                "error": "La cantidad debe ser mayor de 100MXN."
             })
         }
 
@@ -83,6 +98,22 @@ export async function postDonation (req: RequestAuth, res: Response) {
             return res.status(400).json({
                 "error": "Campo faltante: Nombre y apellido de tarjetahabiente."
             })
+        }
+
+        let total_amount = amount;
+        let total_tickets = 0
+        while (true) {
+            total_amount -= 100;
+            total_tickets += 1;
+            if (total_amount < 0) {
+                return res.status(400).json({
+                    "error": "Solo se aceptan cantidades en múltiplos de $100 (ej. $100, $200, $300)."
+                })
+            } else if (total_amount === 0) {
+                break
+            } else {
+                continue
+            }
         }
 
         const user_id = req.user?.id;
@@ -94,11 +125,15 @@ export async function postDonation (req: RequestAuth, res: Response) {
 
         const data = await pool.query(query, values)
 
-        const result = await data.rows[0]
+        const result = await data.rows[0];
 
-        return res.status(200).json(
-            result
-        )
+        const donation_id = result.id;
+
+        const ticketMessage  = await postTickets(user_id, donation_id, total_tickets);
+
+        return res.status(200).json({
+            "message": ticketMessage
+        })
         
     } catch (error) {
         console.log("Error in createPayment", error)
