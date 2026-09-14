@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { pool } from '../../database/db.js';
 import { postPrizes } from './prize.js';
+import { postRounds } from './round.js';
 
 interface RequestAuth extends Request {
     user: {
@@ -30,6 +31,25 @@ export async function getGames (req: RequestAuth, res: Response) {
         console.log("Error en getGames")
         return res.status(400).json({
             "error": "Error getting data of games."
+        })
+    }
+}
+
+export async function getCurrentGame (req: Request, res: Response) {
+    try {
+        
+        const query = `SELECT * FROM games WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1`;
+
+        const data = await pool.query(query);
+
+        const result = data.rows[0]
+
+        return res.status(200).json(result);
+
+    } catch (error) {
+        console.log("Error en getCurrentGames")
+        return res.status(400).json({
+            "error": "Error getting data of current game."
         })
     }
 }
@@ -76,6 +96,7 @@ export async function postGames (req: RequestAuth, res: Response) {
         const gameID = data.id;
 
         postPrizes(gameID, prize_list);
+        postRounds(gameID)
 
         return res.status(200).json(
             data

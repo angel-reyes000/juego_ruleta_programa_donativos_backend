@@ -7,6 +7,19 @@ interface RequestAuth extends Request {
     }
 }
 
+export async function getTickets (req: RequestAuth, res: Response) {
+    try {
+
+        const user_id = req.user.id;
+
+    } catch (error) {
+        console.log("Error in getTickets backend: ", error);
+        res.status(400).json({
+            "error": "Error al obtener el total de tickets."
+        })
+    }
+}
+
 export async function postTickets (user_id: number, donation_id: number, total_tickets: number) {
     try {
 
