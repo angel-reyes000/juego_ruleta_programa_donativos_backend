@@ -11,6 +11,7 @@ import { getCurrentGame, getGames, postGames, updateGame } from './controllers/g
 import { deletePrize, getPrizes, postPrize } from './controllers/games/prize.js';
 import { getCurrentRoundGame } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
+import { getTickets } from './controllers/games/ticket.js';
 
 dotenv.config();
 
@@ -59,6 +60,9 @@ app.get("/api/getCurrentRoundGame", auth, getCurrentRoundGame);
 
 //Spins
 app.post("/api/postSpin", auth, postSpin);
+
+//Tickets
+app.get("/api/getTickets", auth, getTickets);
 
 
 io.on("connection", (socket: Socket) => {
