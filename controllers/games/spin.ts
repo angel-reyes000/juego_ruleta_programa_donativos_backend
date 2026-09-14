@@ -30,7 +30,13 @@ export async function postSpin (req: RequestAuth, res: Response) {
             })
         }
 
-        const { round_id } = req.body;
+        const { round_id, total_current_spins } = req.body;
+
+        if (total_current_spins >= 10) {
+            return res.status(400).json({
+                "error": ["El juego a finalizado.", "Limite de giros alcanzado"]
+            });
+        }
 
         const query = `INSERT INTO spins (winning_number, round_id)
                        VALUES ($1, $2) RETURNING *`

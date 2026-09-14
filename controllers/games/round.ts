@@ -27,16 +27,20 @@ export async function getCurrentRoundGame (req: Request, res: Response) {
 
         console.log("total spins: ", total_current_spins)
 
+        for (let i = 0; i < result.length; i++){
+            result[i] = {...result[i], total_current_spins: total_current_spins}
+        } 
+
         if (total_current_spins <= 5 && result[0].number === 1) {
-            return res.status(200).json(result[0])
+            return res.status(200).json({...result[0], total_current_spins: total_current_spins})
         } else if (total_current_spins > 5 && total_current_spins < 10 && result[1].number === 2) {
-            return res.status(200).json(result[1])
+            return res.status(200).json({...result[1], total_current_spins: total_current_spins - 5})
         } else if (total_current_spins === 10 && result[2].number === 3) {
-            return res.status(200).json(result[2])
+            return res.status(200).json({...result[2], total_current_spins: total_current_spins - 9})
         } else if (total_current_spins === 11 && result[3].number === 4) {
-            return res.status(200).json(result[3])
+            return res.status(200).json({...result[3], total_current_spins: total_current_spins - 10})
         } else if (total_current_spins > 11 && result[4].number === 5) {
-            return res.status(200).json(result[4])
+            return res.status(200).json({...result[4], total_current_spins: total_current_spins - 11})
         } else {
             return res.status(400).json({
                 "error": "No hay rondas disponibles."
