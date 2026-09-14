@@ -12,6 +12,25 @@ export async function getTickets (req: RequestAuth, res: Response) {
 
         const user_id = req.user.id;
 
+        if (!user_id) {
+            return res.status(400).json({
+                "error": "Error al obtener tickets."
+            })
+        }
+
+        const { game_id } = req.query;
+
+        const query = `SELECT * FROM tickets WHERE user_id = $1 AND game_id= $2`
+
+        const values = [user_id, game_id];
+
+        const response = await pool.query(query, values);
+
+        const data = response.rows;
+        //console.log(data);
+
+        return res.status(200).json(data);
+
     } catch (error) {
         console.log("Error in getTickets backend: ", error);
         res.status(400).json({
