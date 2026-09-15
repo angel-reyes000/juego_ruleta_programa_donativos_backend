@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { pool } from "../../database/db.js";
+import { postTicketNumber } from "./tickets_numbers.js";
 
 interface RequestAuth extends Request {
     user: {
@@ -60,8 +61,9 @@ export async function postTickets (user_id: number, donation_id: number, total_t
         let list_tickets: Array<object> = [];
         for (let i = 0; i < total_tickets; i++) {
             const result = await pool.query(query, values);
-            const data = result.rows[0];
-            list_tickets.push(data);
+            const dataTicket = result.rows[0];
+            await postTicketNumber(dataTicket.id)
+            list_tickets.push(dataTicket);
         }        
 
         //console.log(list_tickets);
