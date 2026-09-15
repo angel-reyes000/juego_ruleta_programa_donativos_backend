@@ -1,10 +1,12 @@
-import type { Request, Response } from "express";
+import { response, type Request, type Response } from "express";
 import { pool } from "../../database/db.js";
 import { postTicketNumber } from "./tickets_numbers.js";
+import { error } from "node:console";
 
 interface RequestAuth extends Request {
     user: {
-        id: number
+        id?: number
+        role: string
     }
 }
 
@@ -72,5 +74,56 @@ export async function postTickets (user_id: number, donation_id: number, total_t
     } catch (error) {
         console.log("Error at postTickets backend: ", error)
         return "Error al generar tus tickets."
+    }
+}
+
+export async function deleteTicket (req: RequestAuth, res: Response) {
+    try {
+
+        const roleUser = req.user.role;
+
+        if (roleUser !== 'admin' || !roleUser) {
+            return res.status(400).json({
+                "error": "No tienes permitido eliminar tickets."
+            })
+        }
+
+        const { game_id, winning_number } = req.body;
+
+        const query = `DELETE FROM tickets
+                            WHERE id IN (
+                                SELECT t.id
+                                FROM tickets t
+                                INNER JOIN tickets_numbers tn
+                                    ON tn.ticket_id = t.id
+                                WHERE tn.number = $1
+                                AND t.game_id = $2
+                                AND t.id IN (
+                                    SELECT MIN(t2.id)
+                                    FROM tickets t2
+                                    INNER JOIN tickets_numbers tn2
+                                        ON tn2.ticket_id = t2.id
+                                    WHERE tn2.number = $1
+                                    AND t2.game_id = $2
+                                    GROUP BY t2.user_id
+                                )
+                            )
+                            RETURNING *`;
+
+        const values = [winning_number, game_id];
+
+        const response = await pool.query(query, values);
+
+        const data = response.rows
+
+        console.log("Data borrada: ", data);
+
+        return res.status(200).json(data);
+
+    } catch (error) {
+        console.log("Error in deleteTicket: ", error)
+        res.status(400).json({
+            "error": "Error al restar tickets."
+        })
     }
 }
