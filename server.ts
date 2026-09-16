@@ -9,7 +9,7 @@ import { getDataUser } from './controllers/users/dataUser.js';
 import { paymentIntent, postDonation } from './controllers/users/donations.js';
 import { getCurrentGame, getGames, postGames, updateGame } from './controllers/games/game.js';
 import { deletePrize, getPrizes, postPrize } from './controllers/games/prize.js';
-import { getCurrentRoundGame } from './controllers/games/round.js';
+import { getCurrentRoundGame, getRounds } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
 import { deleteTicket, getTickets } from './controllers/games/ticket.js';
 
@@ -56,7 +56,9 @@ app.post("/api/postPrize", auth, postPrize);
 app.delete("/api/deletePrize", auth, deletePrize);
 
 //Rounds
+app.get("/api/getRounds", auth, getRounds);
 app.get("/api/getCurrentRoundGame", auth, getCurrentRoundGame);
+
 
 //Spins
 app.post("/api/postSpin", auth, postSpin);
@@ -75,6 +77,11 @@ io.on("connection", (socket: Socket) => {
 
         console.log("Evento spin enviado")
 
+    })
+
+    socket.on("updateRoundSpins", (number: number, spins: number, total_current_spins: number) => {
+        //console.log(number, spins, total_current_spins)
+        io.emit("updateRoundSpins", number, spins, total_current_spins);
     })
 
 })

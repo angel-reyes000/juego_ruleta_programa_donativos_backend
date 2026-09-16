@@ -1,6 +1,27 @@
 import type { Request, Response } from "express";
 import { pool } from "../../database/db.js";
 
+export async function getRounds (req: Request, res: Response) {
+    try {
+        const { game_id } = req.query;
+
+        const query = `SELECT * FROM rounds WHERE game_id = $1`;
+
+        const response = await pool.query(query, [game_id, ]);
+
+        const data = response.rows;
+        console.log(data);
+
+        return res.status(200).json(data)
+
+    } catch (error) {
+        console.log("Error in getRounds: ", error)
+        return res.status(400).json({
+            "error": "No fue posible obtener rondas actuales."
+        })
+    }
+}
+
 export async function getCurrentRoundGame (req: Request, res: Response) {
     try {
         const { game_id } = req.query;
