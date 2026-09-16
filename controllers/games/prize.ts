@@ -12,6 +12,7 @@ interface Prize {
     type: string
     value: number
     round: number
+    roulette_number: number
 }
 
 export async function getPrizes (req: RequestAuth, res: Response) {
@@ -54,24 +55,24 @@ export async function postPrize (req: RequestAuth, res: Response) {
             })
         }
 
-        const { name, type, value, round, game_id } = req.body;
+        const { name, type, value, round, roulette_number, game_id } = req.body;
 
-        if (!name || !type || !value || !round || !game_id) {
+        if (!name || !type || !value || !round || !roulette_number || !game_id) {
             return res.status(400).json({
                 "error": "Campos faltantes"
             })
         }
 
-        if (name.length > 100 || round > 5 || round < 1) {
+        if (name.length > 100 || round > 5 || round < 1 || roulette_number > 10 || roulette_number < 1) {
             return res.status(400).json({
                 "error": "Campos invalidos"
             })
         }
 
-        const query = `INSERT INTO prizes (name, type, value, round, game_id)
-                        VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+        const query = `INSERT INTO prizes (name, type, value, round, roulette_number, game_id)
+                        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
 
-        const values = [name, type, value, round, game_id];
+        const values = [name, type, value, round, roulette_number, game_id];
 
         const response = await pool.query(query, values);
 
@@ -105,15 +106,21 @@ export async function postPrizes (gameID: number, prize_list: Prize[]) {
             return
         }
 
-        const query = `INSERT INTO prizes (name, type, value, round, game_id)
-                        VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+        const query = `INSERT INTO prizes (name, type, value, round, roulette_number, game_id)
+                        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
 
         let list_data = []
         for (const obj of prize_list) {
-            const values = [obj.name, obj.type, obj.value, obj.round, gameID]
+            const values = [obj.name, obj.type, obj.value, obj.round, obj.roulette_number, gameID]
 
             if (obj.round > 5 || obj.round < 1) {
                 const error = "Error al crear premio, numero maximo en ronda 5 y minimo de 1";
+                console.log(error);
+                continue;
+            }
+
+            if (obj.roulette_number > 10 || obj.roulette_number < 1) {
+                const error = "Error al crear premio, numero maximo de numero en ruleta 10 y minimo de 1";
                 console.log(error);
                 continue;
             }
