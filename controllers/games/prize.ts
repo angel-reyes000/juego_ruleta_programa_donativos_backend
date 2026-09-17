@@ -17,20 +17,21 @@ interface Prize {
 
 export async function getPrizes (req: RequestAuth, res: Response) {
     try {
-        const roleUser = req.user.role;
+        //const roleUser = req.user.role;
         const { gameId } = req.query;
 
-        if (roleUser !== 'admin') {
-            return res.status(400).json({
-                "error": "No tienes permiso para crear"
-            })
-        }
+        // if (roleUser !== 'admin') {
+        //     return res.status(400).json({
+        //         "error": "No tienes permiso para crear"
+        //     })
+        // }
 
         const query = "SELECT * FROM prizes WHERE game_id = $1";
 
         const response = await pool.query(query, [gameId, ])
 
         const data = response.rows
+        //console.log("Premios: ", data, gameId);
 
         res.status(200).json(
             data

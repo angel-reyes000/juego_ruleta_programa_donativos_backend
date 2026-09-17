@@ -70,19 +70,30 @@ app.delete("/api/deleteTicket", auth, deleteTicket);
 
 io.on("connection", (socket: Socket) => {
 
-    socket.on("spin", (winning_number) => {
-        console.log("Evento espin recibido", socket.id)
-
-        io.emit("spin", winning_number);
-
-        console.log("Evento spin enviado")
+    socket.on("spin", (winning_number, dataRoulette) => {
+        //console.log("Evento espin recibido", socket.id)
+        io.emit("spin", winning_number, dataRoulette);
+        //console.log("Evento spin enviado")
 
     })
 
-    socket.on("updateRoundSpins", (number: number, spins: number, total_current_spins: number) => {
-        //console.log(number, spins, total_current_spins)
-        io.emit("updateRoundSpins", number, spins, total_current_spins);
+    socket.on("prizesUpdated", (dataRoulette) => {
+
+        io.emit("prizesUpdated", {
+            items: dataRoulette.map((premio, index) => ({
+                id: index + 1,
+                label: `${index + 1}. ${premio.name}`,
+            })),
+            itemLabelFontSizeMax: 20,
+        });
     })
+
+    socket.on("updateRoundSpins", (number: number, spins: number, total_current_spins: number, dataRoulette) => {
+
+        io.emit("updateRoundSpins", number, spins, total_current_spins, dataRoulette);
+        
+    }
+);
 
 })
 
