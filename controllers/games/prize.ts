@@ -7,7 +7,7 @@ interface RequestAuth extends Request {
     }
 }
 
-interface Prize {
+export interface Prize {
     name: string
     type: string
     value: number

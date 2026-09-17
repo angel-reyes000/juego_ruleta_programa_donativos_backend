@@ -36,6 +36,34 @@ export async function getUsers (req: Request, res: Response) {
     }
 }
 
+export async function getUsersWithDonation (req: Request, res: Response) {
+    try {
+
+        const { game_id } = req.query;
+
+        const queryTickets = `SELECT * FROM tickets WHERE game_id = $1`;
+
+        const responseTickets = await pool.query(queryTickets, [game_id, ])
+
+        const dataTickets = responseTickets.rows
+        //console.log("TICKETS DE USUARIOS ACTIVOS", dataTickets)
+
+        let setActiveUsers = new Set();
+        for (const dataTicket of dataTickets) {
+            setActiveUsers.add(dataTicket.user_id)
+        }
+        //console.log("USUARIOS ACTIVOS: ", setActiveUsers)
+
+        return res.status(200).json(setActiveUsers.size)
+
+    } catch (error) {
+        console.log("Error in getUsersWithDonation: ", error)
+        return res.status(400).json({
+            "error": "Error al obtener donadores participantes."
+        })
+    }
+}
+
 export async function postUser (req: Request, res: Response) {
     try {
 

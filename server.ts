@@ -4,11 +4,12 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { connectionDB } from './database/db.js';
-import { getUsers, postUser, loginUser, auth } from './controllers/users/user.js'
+import { getUsers, postUser, loginUser, auth, getUsersWithDonation } from './controllers/users/user.js'
 import { getDataUser } from './controllers/users/dataUser.js';
 import { paymentIntent, postDonation } from './controllers/users/donations.js';
 import { getCurrentGame, getGames, postGames, updateGame } from './controllers/games/game.js';
 import { deletePrize, getPrizes, postPrize } from './controllers/games/prize.js';
+import type { Prize } from './controllers/games/prize.js';
 import { getCurrentRoundGame, getRounds } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
 import { deleteTicket, getTickets } from './controllers/games/ticket.js';
@@ -29,7 +30,10 @@ app.use(cors())
 app.use(express.json())
 
 
+//Users
 app.get("/api/users", getUsers);
+app.get("/api/getUsersWithDonation", auth, getUsersWithDonation);
+
 //SIGNUP
 app.post("/api/users", postUser);
 //LOGIN
@@ -80,7 +84,7 @@ io.on("connection", (socket: Socket) => {
     socket.on("prizesUpdated", (dataRoulette) => {
 
         io.emit("prizesUpdated", {
-            items: dataRoulette.map((premio, index) => ({
+            items: dataRoulette.map((premio: Prize, index: number) => ({
                 id: index + 1,
                 label: `${index + 1}. ${premio.name}`,
             })),
