@@ -13,6 +13,7 @@ import type { Prize } from './controllers/games/prize.js';
 import { getCurrentRoundGame, getRounds } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
 import { deleteTicket, getTickets } from './controllers/games/ticket.js';
+import { getWinningTickets, postWinningTickets } from './controllers/games/winning_tickets.js';
 
 dotenv.config();
 
@@ -70,6 +71,11 @@ app.post("/api/postSpin", auth, postSpin);
 //Tickets
 app.get("/api/getTickets", auth, getTickets);
 app.delete("/api/deleteTicket", auth, deleteTicket);
+
+//Winning tickets
+app.get("/api/getWinningTickets", auth, getWinningTickets);
+app.post("/api/postWinningTickets", auth, postWinningTickets);
+
 
 
 io.on("connection", (socket: Socket) => {
