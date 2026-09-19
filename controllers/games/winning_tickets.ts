@@ -16,15 +16,11 @@ export async function getWinningTickets(req: Request, res: Response) {
                 wt.id,
                 wt.winning_number,
                 wt.game_id,
-                wt.round_id,
-                wt.spin AS spin_number,
-                wt.prize_id,
-                p.name AS prize_name,
-                r.number AS round_number,
+                wt.round_number,
+                wt.spin_number,
+                wt.prize_name,
                 wt.created_at
             FROM winning_tickets wt
-            INNER JOIN rounds r ON r.id = wt.round_id
-            LEFT JOIN prizes p ON p.id = wt.prize_id
             WHERE wt.game_id = $1
             ORDER BY wt.created_at DESC
         `;
@@ -54,22 +50,23 @@ export async function postWinningTickets(req: Request, res: Response) {
                 "message": "Datos para registrar en 'Ultimos resultados' incompletos."
             })
         }
-        console.log("JAJAJA: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins)
+
+        //console.log("DATOS RECIBIDOS: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins)
         const queryPrize = `SELECT * FROM prizes WHERE game_id = $1 AND round = $2 AND roulette_number = $3`;
         const valuesPrize = [game_id, dataRound.number, winning_number]
         const responsePrize = await pool.query(queryPrize, valuesPrize);
-        const dataPrizeId = responsePrize.rows.length === 0 ? null : responsePrize.rows[0].id;
-        console.log("DATA PRIZE IDDDD: ", dataPrizeId)
-        console.log("JAJAJA: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins, dataPrizeId)
+        const dataPrizeName = responsePrize.rows.length === 0 ? null : responsePrize.rows[0].name;
+        //console.log("DATA PRIZE IDDDD: ", dataPrizeName)
+        console.log("Datos recibidos2: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins, dataPrizeName)
 
-        const query = `INSERT INTO winning_tickets (winning_number, game_id, round_id, spin, prize_id)
+        const query = `INSERT INTO winning_tickets (winning_number, game_id, round_number, spin_number, prize_name)
                        VALUES ($1, $2, $3, $4, $5) RETURNING *`
-        const values = [winning_number, game_id, dataRound.id, dataRound.total_current_spins, dataPrizeId];
+        const values = [winning_number, game_id, dataRound.number, dataRound.total_current_spins, dataPrizeName];
 
         const response = await pool.query(query, values);
 
-        const data = response.rows
-        console.log("HISTORIAL::::", data);
+        const data = response.rows[0];
+        console.log("HISTORIAL POST:", data);
 
         return res.status(200).json(data)
 

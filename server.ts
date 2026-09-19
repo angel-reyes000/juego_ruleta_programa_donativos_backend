@@ -102,8 +102,14 @@ io.on("connection", (socket: Socket) => {
 
         io.emit("updateRoundSpins", number, spins, total_current_spins, dataRoulette);
         
-    }
-);
+    });
+
+    socket.on("latestResults", ( winningNumber: number, game_id: number, round_number: number, spin_number: number, prize_name: string) => {
+        
+        io.emit("latestResults", winningNumber, game_id, round_number, spin_number, prize_name);
+        console.log("PRUEBA DE LO QUE MANDA LATESTRESULTS: ", winningNumber, game_id, round_number, spin_number, prize_name)
+
+    })
 
 })
 
