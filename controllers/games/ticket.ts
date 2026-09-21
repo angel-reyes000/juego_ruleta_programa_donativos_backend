@@ -45,15 +45,40 @@ export async function getTickets (req: RequestAuth, res: Response) {
 export async function postTickets (user_id: number, donation_id: number, total_tickets: number) {
     try {
 
-        const queryGameId = `SELECT id FROM games 
+        const queryGame = `SELECT id, max_capacity FROM games 
                         WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1`;
 
-        const dataGameId = await pool.query(queryGameId);
+        const dataGame = await pool.query(queryGame);
 
-        const game_id = dataGameId.rows[0].id;
+        const game_id = dataGame.rows[0].id;
 
         if (!game_id) {
             return "No hay juegos actualmente activos para proporcionarte tickets."
+        }
+
+        const game_max_capacity = dataGame.rows[0].max_capacity;
+
+        const queryCurrentMaxCapacity = `
+            SELECT
+                COUNT(DISTINCT d.user_id) AS total_users,
+                EXISTS (
+                    SELECT 1
+                    FROM tickets existing_tickets
+                    WHERE existing_tickets.game_id = $1
+                      AND existing_tickets.user_id = $2
+                ) AS user_already_participating
+            FROM donations d
+            INNER JOIN tickets t ON t.donation_id = d.id
+            WHERE t.game_id = $1
+        `;
+
+        const responseUsers = await pool.query(queryCurrentMaxCapacity, [game_id, user_id]);
+
+        const quantityUsers = Number(responseUsers.rows[0].total_users)
+        const userAlreadyParticipating = responseUsers.rows[0].user_already_participating;
+
+        if (quantityUsers >= game_max_capacity && !userAlreadyParticipating) {
+            return "Sin asignacion de ticket por que se alcanzo la maximo cantidad de donadores participantes."
         }
 
         const query = `INSERT INTO tickets (user_id, game_id, donation_id)
