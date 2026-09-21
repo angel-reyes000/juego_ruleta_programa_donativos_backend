@@ -32,43 +32,28 @@ export async function getCurrentRoundGame (req: Request, res: Response) {
 
         const data = await pool.query(query, [game_id, ])
         
-        const result = data.rows;
-        console.log(result)
+        const rounds = data.rows;
 
-        let list_id_rounds = [];
-        for (let i = 0; i < result.length; i++){
-            list_id_rounds.push(result[i].id)
-        }
-
-        const queryTotalSpins = `SELECT COUNT(*) FROM spins WHERE round_id IN ($1, $2, $3, $4, $5)`;
-
-        const data_total_current_spins = await pool.query(queryTotalSpins, list_id_rounds);
-
-        const total_current_spins = Number(data_total_current_spins.rows[0].count)
-
-        console.log("total spins: ", total_current_spins)
-
-        for (let i = 0; i < result.length; i++){
-            result[i] = {...result[i], total_current_spins: total_current_spins}
-        } 
-
-        if (total_current_spins <= 5 && result[0].number === 1) {
-            return res.status(200).json({...result[0], total_current_spins: total_current_spins})
-        } else if (total_current_spins > 5 && total_current_spins < 10 && result[1].number === 2) {
-            return res.status(200).json({...result[1], total_current_spins: total_current_spins - 5})
-        } else if (total_current_spins === 10 && result[2].number === 3) {
-            return res.status(200).json({...result[2], total_current_spins: total_current_spins - 9})
-        } else if (total_current_spins === 11 && result[3].number === 4) {
-            return res.status(200).json({...result[3], total_current_spins: total_current_spins - 10})
-        } else if (total_current_spins > 11 && result[4].number === 5) {
-            return res.status(200).json({...result[4], total_current_spins: total_current_spins - 11})
-        } else {
+        if (rounds.length === 0) {
             return res.status(400).json({
                 "error": "No hay rondas disponibles."
             });
         }
 
-        //return res.status(200).json(result)
+        const queryTotalSpins = `SELECT round_id, COUNT(*)::int AS total FROM spins
+                                 WHERE round_id = ANY($1::int[]) GROUP BY round_id`;
+
+        const data_total_spins = await pool.query(queryTotalSpins, [rounds.map((round) => round.id)]);
+
+        const spinsByRound = new Map<number, number>(
+            data_total_spins.rows.map((row: { round_id: number, total: number }) => [row.round_id, row.total] as [number, number])
+        );
+
+        // Ronda actual: la primera con giros pendientes; si todas terminaron, la ultima (juego finalizado).
+        const currentRound = rounds.find((round) => (spinsByRound.get(round.id) ?? 0) < round.spins) ?? rounds[rounds.length - 1];
+        const total_current_spins = spinsByRound.get(currentRound.id) ?? 0;
+
+        return res.status(200).json({...currentRound, total_current_spins: total_current_spins})
 
     } catch (error) {
         console.log("Error en getCurrentRoundsGames: ", error)

@@ -12,8 +12,8 @@ import { deletePrize, getPrizes, postPrize } from './controllers/games/prize.js'
 import type { Prize } from './controllers/games/prize.js';
 import { getCurrentRoundGame, getRounds } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
-import { deleteTicket, getTickets } from './controllers/games/ticket.js';
-import { getWinningTickets, postWinningTickets } from './controllers/games/winning_tickets.js';
+import { getTickets } from './controllers/games/ticket.js';
+import { getGameWinners, getWinningTickets } from './controllers/games/winning_tickets.js';
 
 dotenv.config();
 
@@ -70,19 +70,18 @@ app.post("/api/postSpin", auth, postSpin);
 
 //Tickets
 app.get("/api/getTickets", auth, getTickets);
-app.delete("/api/deleteTicket", auth, deleteTicket);
 
 //Winning tickets
 app.get("/api/getWinningTickets", auth, getWinningTickets);
-app.post("/api/postWinningTickets", auth, postWinningTickets);
+app.get("/api/getGameWinners", auth, getGameWinners);
 
 
 
 io.on("connection", (socket: Socket) => {
 
-    socket.on("spin", (winning_number, dataRoulette) => {
+    socket.on("spin", (winning_number, dataRoulette, winners) => {
         //console.log("Evento espin recibido", socket.id)
-        io.emit("spin", winning_number, dataRoulette);
+        io.emit("spin", winning_number, dataRoulette, winners);
         //console.log("Evento spin enviado")
 
     })

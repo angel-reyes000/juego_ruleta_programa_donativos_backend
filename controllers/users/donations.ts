@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import Stripe from "stripe"
 import { pool } from "../../database/db.js"
-import { postTickets } from "../games/ticket.js"
+import { activeGameHasStarted, postTickets } from "../games/ticket.js"
 
 interface RequestAuth extends Request {
     user: {
@@ -58,6 +58,12 @@ export async function paymentIntent (req: Request, res: Response) {
             } else {
                 continue
             }
+        }
+
+        if (await activeGameHasStarted()) {
+            return res.status(400).json({
+                "error": "El sorteo ya inicio, ya no se aceptan donativos para este juego."
+            })
         }
 
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -126,6 +132,12 @@ export async function postDonation (req: RequestAuth, res: Response) {
             } else {
                 continue
             }
+        }
+
+        if (await activeGameHasStarted()) {
+            return res.status(400).json({
+                "error": "El sorteo ya inicio, ya no se aceptan donativos para este juego."
+            })
         }
 
         const user_id = req.user?.id;

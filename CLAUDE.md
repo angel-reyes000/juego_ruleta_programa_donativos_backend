@@ -50,10 +50,10 @@ controllers/
 	games/game.ts                   # CRUD parcial de juegos
 	games/prize.ts                  # Premios y carga masiva de premios
 	games/round.ts                  # Rondas y selección de ronda actual
-	games/spin.ts                   # Giro aleatorio y consulta incompleta de spins
-	games/ticket.ts                 # Tickets, números de ticket y eliminación de ganador
-	games/tickets_numbers.ts        # Generación del número aleatorio de un ticket
-	games/winning_tickets.ts        # Historial de resultados ganadores
+	games/spin.ts                   # Giro transaccional: ronda, número, eliminación, reasignación y ganadores
+	games/ticket.ts                 # Tickets y cierre de cupo (activeGameHasStarted)
+	games/tickets_numbers.ts        # Número de ticket y reasignación balanceada de números
+	games/winning_tickets.ts        # Historial de resultados y ganadores con premio (admin)
 package.json                      # Dependencias y scripts
 package-lock.json                 # Versiones exactas de npm
 tsconfig.json                     # TypeScript estricto, módulo nodenext
@@ -141,23 +141,34 @@ Un premio usa `name`, `type`, `value`, `round`, `roulette_number` y `game_id`. L
 | Método | Ruta | Auth | Función |
 |---|---|---|---|
 | GET | `/api/getRounds?game_id=...` | Sí | Lista rondas del juego. |
-| GET | `/api/getCurrentRoundGame?game_id=...` | Sí | Cuenta spins y selecciona la ronda según el total acumulado. |
-| POST | `/api/postSpin` | Sí/admin | Genera un número aleatorio de 1 a 10 e inserta un spin para `round_id`. |
+| GET | `/api/getCurrentRoundGame?game_id=...` | Sí | Devuelve la primera ronda con giros pendientes (o la 5 si terminó) con `total_current_spins` = giros hechos **en esa ronda**. |
+| POST | `/api/postSpin` | Sí/admin | Giro transaccional (ver reglas). Solo usa `round_id` del body para ubicar el juego; la ronda la decide el servidor. |
 
-`postRounds` crea cinco rondas con spins configurados `[5, 4, 1, 1, 10]`. `getSpins` existe como función incompleta y actualmente no ejecuta la consulta ni devuelve datos; no asumir que es una API funcional.
+`postRounds` crea cinco rondas con spins configurados `[5, 4, 1, 1, 10]`. `getSpins` sigue incompleta y no es una API funcional.
+
+### Reglas del sorteo (implementadas en `postSpin`)
+
+Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→10, R5 los 10 restantes ganan premio.
+
+- El cupo se cierra en el primer giro del juego: `activeGameHasStarted` bloquea `paymentIntent`, `createPayment` y `postTickets`. El admin puede iniciar cuando quiera, pero necesita al menos un ticket.
+- En el primer giro y al final de cada ronda (1-4) `reassignActiveTicketNumbers` baraja con `crypto.randomInt` y reparte números 1-10 en rotación: cada número tiene la misma cantidad de tickets (500 c/u con 5,000) y con 10 tickets cada uno recibe uno distinto.
+- Dentro de una ronda el número ganador no se repite (además hay índice único `spins(round_id, winning_number)`).
+- Avanzan usuarios, no tickets sueltos: si un usuario tiene un ticket activo con el número ganador de un giro, se registra en `game_winners` (un solo registro por usuario y giro, con su ticket coincidente de menor `id`). No se le resta ningún ticket.
+- Al completar una ronda 1-4 todos los tickets de los usuarios que no ganaron ningún giro de la ronda (sin registro en `game_winners` para esa ronda) pasan a `status='eliminated'` con `eliminated_round`; los usuarios que sí ganaron siguen con todos sus tickets, que se renumeran. Ya no se borran tickets. Con usuarios de varios tickets pueden avanzar más de 2,500 / 1,000 / 100 / 10 tickets.
+- En todas las rondas ese ticket ganador se registra en `game_winners` (rondas 1-3: avanza; rondas 4-5: además recibe el premio de ese giro). `postSpin` solo devuelve `winners` (para la animación) en las rondas 4 y 5.
+- Cada giro inserta también su fila en `winning_tickets` (`spin_number` es 1-based dentro de la ronda). `postSpin` bloquea el juego con `SELECT ... FOR UPDATE` y todo va en una transacción.
+- Respuesta de `postSpin`: fila del spin más `game_id`, `round_number`, `spin_number`, `prize_name`, `round_completed`, `active_tickets` y `winners` (`[{user_id, display_name}]`, nombre + inicial del apellido).
+- Los endpoints `deleteTicket` y `postWinningTickets` se eliminaron: el primero borraba a los ganadores y el segundo permitía a cualquier usuario escribir resultados.
 
 ### Tickets y resultados
 
 | Método | Ruta | Auth | Función |
 |---|---|---|---|
-| GET | `/api/getTickets?game_id=...` | Sí | Tickets del usuario autenticado para un juego. |
-| DELETE | `/api/deleteTicket` | Sí/admin | Elimina el primer ticket de cada usuario que tenga el `winning_number` en el juego. |
-| GET | `/api/getWinningTickets?game_id=...` | Sí | Historial descendente de resultados ganadores. |
-| POST | `/api/postWinningTickets` | Sí | Busca el premio correspondiente e inserta el resultado histórico. |
+| GET | `/api/getTickets?game_id=...` | Sí | Tickets del usuario autenticado (incluye `status`). |
+| GET | `/api/getWinningTickets?game_id=...` | Sí | Historial descendente de resultados. |
+| GET | `/api/getGameWinners?game_id=...` | Sí/admin | Ganadores de todas las rondas, un renglón por usuario y giro (`round_number`, `spin_number`, `winning_number`, `prize_name`, `name`, `last_name`, `email`, `phone_number`, `tickets`). |
 
-`postTickets` obtiene el juego activo, impone `max_capacity` por usuarios distintos y crea tantos registros como tickets correspondan. Cada ticket llama a `postTicketNumber`, que asigna un número aleatorio de 1 a 10 en `tickets_numbers`.
-
-`postWinningTickets` espera `winning_number`, `game_id`, `dataRound` y `dataSpin`; usa `dataRound.number` y `dataRound.total_current_spins`, busca el premio por juego/ronda/número y guarda `prize_name`.
+`postTickets` obtiene el juego activo, impone `max_capacity` por usuarios distintos y crea los tickets, cada uno con un número inicial aleatorio en `tickets_numbers`.
 
 ## Socket.IO
 
@@ -165,7 +176,7 @@ Todos los eventos recibidos se emiten a todos los clientes mediante `io.emit`, s
 
 | Evento | Argumentos recibidos | Resultado emitido |
 |---|---|---|
-| `spin` | `winning_number`, `dataRoulette` | Retransmite ambos argumentos. |
+| `spin` | `winning_number`, `dataRoulette`, `winners` | Retransmite los tres argumentos. |
 | `prizesUpdated` | `dataRoulette` | Convierte cada premio en `{ id, label }` y añade `itemLabelFontSizeMax: 20`. |
 | `updateRoundSpins` | `number`, `spins`, `total_current_spins`, `dataRoulette` | Retransmite los cuatro argumentos. |
 | `latestResults` | `winningNumber`, `game_id`, `round_number`, `spin_number`, `prize_name` | Retransmite los cinco argumentos. |
@@ -182,9 +193,12 @@ El servidor Socket.IO permite el origen configurado en `API_KEY_FRONTEND`; Expre
 - `rounds`: `id`, `number`, `spins`, `game_id`.
 - `spins`: `id`, `winning_number`, `round_id`.
 - `donations`: `id`, `user_id`, `amount`, `card_holder`.
-- `tickets`: `id`, `user_id`, `game_id`, `donation_id`.
+- `tickets`: `id`, `user_id`, `game_id`, `donation_id`, `status` (`active`/`eliminated`), `eliminated_round`.
 - `tickets_numbers`: `id`, `number`, `ticket_id`.
 - `winning_tickets`: `id`, `winning_number`, `game_id`, `round_number`, `spin_number`, `prize_name`, `created_at`.
+- `game_winners`: `id`, `game_id`, `user_id`, `ticket_id`, `round_number`, `spin_number`, `winning_number`, `prize_name`, `created_at`.
+
+El esquema de la base de datos se administra a mano fuera de este repositorio: el código de `postSpin`, `getTickets` y `getGameWinners` requiere estas columnas y tabla, y el índice único `spins(round_id, winning_number)` es opcional.
 
 Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evitar interpolar valores del usuario en SQL. Las operaciones relacionadas con donación, tickets y capacidad no están dentro de una transacción; una modificación que requiera atomicidad debe usar `pool.connect()`, `BEGIN`, `COMMIT` y `ROLLBACK`.
 
@@ -207,7 +221,7 @@ Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evita
 - Algunos controladores responden `400` para autorización, validación y errores internos; conservar compatibilidad al corregirlo o cambiarlo de forma coordinada.
 - Varias validaciones usan comprobaciones de truthiness, por lo que valores `0` pueden rechazarse aunque sean numéricamente válidos.
 - `postGames` y `postDonation` no garantizan atomicidad entre las inserciones relacionadas.
-- La selección de ronda en `getCurrentRoundGame` asume que existen cinco rondas y puede fallar con un resultado vacío.
-- `getCurrentRoundGame` construye un `IN ($1, $2, $3, $4, $5)` fijo; no reutilizarlo para cantidades variables sin adaptar los placeholders.
-- Los números ganadores y de tickets se generan con `Math.random()` y no con un generador seguro; cualquier cambio de reglas de sorteo debe revisar este supuesto.
+- El número ganador y las reasignaciones usan `crypto.randomInt`; solo el número inicial de cada ticket (`postTicketNumber`) usa `Math.random()` y se reemplaza en el primer giro.
+- Los eventos Socket.IO (`spin`, `latestResults`, ...) no están autenticados: cualquier cliente puede emitirlos.
+- El juego debe seguir dentro de `start_datetime`-`end_datetime` mientras se gira, porque `getCurrentGame` filtra por ese rango.
 - No hay suite de tests en el repositorio. El mínimo de verificación disponible es `npm run build` y pruebas manuales de endpoints/eventos.
