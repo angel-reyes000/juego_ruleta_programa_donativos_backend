@@ -42,8 +42,27 @@ export async function getTickets (req: RequestAuth, res: Response) {
     }
 }
 
+// El cupo se cierra cuando el juego activo hace su primer giro.
+export async function activeGameHasStarted () {
+    const query = `SELECT 1 FROM games g
+                   WHERE CURRENT_TIMESTAMP BETWEEN g.start_datetime AND g.end_datetime
+                   AND EXISTS (
+                       SELECT 1 FROM spins s
+                       INNER JOIN rounds r ON r.id = s.round_id
+                       WHERE r.game_id = g.id
+                   ) LIMIT 1`;
+
+    const response = await pool.query(query);
+
+    return (response.rowCount ?? 0) > 0;
+}
+
 export async function postTickets (user_id: number, donation_id: number, total_tickets: number) {
     try {
+
+        if (await activeGameHasStarted()) {
+            return "El sorteo ya inicio, ya no se asignan tickets."
+        }
 
         const queryGame = `SELECT id, max_capacity FROM games 
                         WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1`;
@@ -99,56 +118,5 @@ export async function postTickets (user_id: number, donation_id: number, total_t
     } catch (error) {
         console.log("Error at postTickets backend: ", error)
         return "Error al generar tus tickets."
-    }
-}
-
-export async function deleteTicket (req: RequestAuth, res: Response) {
-    try {
-
-        const roleUser = req.user.role;
-
-        if (roleUser !== 'admin' || !roleUser) {
-            return res.status(400).json({
-                "error": "No tienes permitido eliminar tickets."
-            })
-        }
-
-        const { game_id, winning_number } = req.body;
-
-        const query = `DELETE FROM tickets
-                            WHERE id IN (
-                                SELECT t.id
-                                FROM tickets t
-                                INNER JOIN tickets_numbers tn
-                                    ON tn.ticket_id = t.id
-                                WHERE tn.number = $1
-                                AND t.game_id = $2
-                                AND t.id IN (
-                                    SELECT MIN(t2.id)
-                                    FROM tickets t2
-                                    INNER JOIN tickets_numbers tn2
-                                        ON tn2.ticket_id = t2.id
-                                    WHERE tn2.number = $1
-                                    AND t2.game_id = $2
-                                    GROUP BY t2.user_id
-                                )
-                            )
-                            RETURNING *`;
-
-        const values = [winning_number, game_id];
-
-        const response = await pool.query(query, values);
-
-        const data = response.rows
-
-        console.log("Data borrada: ", data);
-
-        return res.status(200).json(data);
-
-    } catch (error) {
-        console.log("Error in deleteTicket: ", error)
-        res.status(400).json({
-            "error": "Error al restar tickets."
-        })
     }
 }
