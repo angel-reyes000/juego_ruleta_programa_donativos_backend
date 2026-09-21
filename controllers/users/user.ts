@@ -41,20 +41,19 @@ export async function getUsersWithDonation (req: Request, res: Response) {
 
         const { game_id } = req.query;
 
-        const queryTickets = `SELECT * FROM tickets WHERE game_id = $1`;
+        const queryUsers = `
+            SELECT COUNT(DISTINCT d.user_id) AS total_users
+            FROM donations d
+            INNER JOIN tickets t ON t.donation_id = d.id
+            WHERE t.game_id = $1
+        `;
 
-        const responseTickets = await pool.query(queryTickets, [game_id, ])
+        const responseUsers = await pool.query(queryUsers, [game_id]);
 
-        const dataTickets = responseTickets.rows
-        //console.log("TICKETS DE USUARIOS ACTIVOS", dataTickets)
+        const dataUsers = Number(responseUsers.rows[0].total_users)
+        //console.log("TOTAL DE USUARIOS: ", dataUsers)
 
-        let setActiveUsers = new Set();
-        for (const dataTicket of dataTickets) {
-            setActiveUsers.add(dataTicket.user_id)
-        }
-        //console.log("USUARIOS ACTIVOS: ", setActiveUsers)
-
-        return res.status(200).json(setActiveUsers.size)
+        return res.status(200).json(dataUsers);
 
     } catch (error) {
         console.log("Error in getUsersWithDonation: ", error)

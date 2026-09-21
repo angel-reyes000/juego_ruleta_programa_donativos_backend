@@ -28,7 +28,7 @@ export async function getWinningTickets(req: Request, res: Response) {
         const response = await pool.query(query, [game_id, ]);
 
         const data = response.rows
-        console.log("ULTIMOS RESULTADOS: ", data);
+        //console.log("ULTIMOS RESULTADOS: ", data);
 
         return res.status(200).json(data);
 
@@ -57,7 +57,7 @@ export async function postWinningTickets(req: Request, res: Response) {
         const responsePrize = await pool.query(queryPrize, valuesPrize);
         const dataPrizeName = responsePrize.rows.length === 0 ? null : responsePrize.rows[0].name;
         //console.log("DATA PRIZE IDDDD: ", dataPrizeName)
-        console.log("Datos recibidos2: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins, dataPrizeName)
+        //console.log("Datos recibidos2: ", winning_number, game_id, dataRound.number, dataRound.total_current_spins, dataPrizeName)
 
         const query = `INSERT INTO winning_tickets (winning_number, game_id, round_number, spin_number, prize_name)
                        VALUES ($1, $2, $3, $4, $5) RETURNING *`
@@ -66,7 +66,7 @@ export async function postWinningTickets(req: Request, res: Response) {
         const response = await pool.query(query, values);
 
         const data = response.rows[0];
-        console.log("HISTORIAL POST:", data);
+        //console.log("HISTORIAL POST:", data);
 
         return res.status(200).json(data)
 
