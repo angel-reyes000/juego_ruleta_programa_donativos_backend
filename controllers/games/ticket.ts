@@ -23,7 +23,7 @@ export async function getTickets (req: RequestAuth, res: Response) {
 
         const { game_id } = req.query;
 
-        const query = `SELECT * FROM tickets WHERE user_id = $1 AND game_id= $2`
+        const query = `SELECT t.*, tn.number AS ticket_number FROM tickets t LEFT JOIN tickets_numbers tn ON tn.ticket_id = t.id WHERE t.user_id = $1 AND t.game_id = $2`
 
         const values = [user_id, game_id];
 
