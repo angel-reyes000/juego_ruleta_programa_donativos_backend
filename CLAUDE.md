@@ -166,7 +166,7 @@ Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→1
 |---|---|---|---|
 | GET | `/api/getTickets?game_id=...` | Sí | Tickets del usuario autenticado (incluye `status`). |
 | GET | `/api/getWinningTickets?game_id=...` | Sí | Historial descendente de resultados. |
-| GET | `/api/getGameWinners?game_id=...` | Sí/admin | Ganadores de todas las rondas, un renglón por usuario y giro (`round_number`, `spin_number`, `winning_number`, `prize_name`, `name`, `last_name`, `email`, `phone_number`, `tickets`). |
+| GET | `/api/getGameWinners?game_id=...` | Sí/admin | Ganadores solo de la ronda 5 (premiados finales), un renglón por usuario y giro (`round_number`, `spin_number`, `winning_number`, `prize_name`, `name`, `last_name`, `email`, `phone_number`, `tickets`). |
 
 `postTickets` obtiene el juego activo, impone `max_capacity` por cantidad total de tickets ocupados en el juego (cada ticket equivale a un lugar/cupo; si `tickets_ocupados + total_tickets > max_capacity` se rechaza la asignación completa) y crea los tickets, cada uno con un número inicial aleatorio en `tickets_numbers`.
 

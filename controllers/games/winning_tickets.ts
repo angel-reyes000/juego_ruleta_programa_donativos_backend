@@ -46,7 +46,7 @@ interface RequestAuth extends Request {
     }
 }
 
-// Solo admin: ganadores de todas las rondas, un renglon por usuario y giro (con su cantidad de tickets ganadores).
+// Solo admin: ganadores de la ronda 5 (premiados finales), un renglon por usuario y giro (con su cantidad de tickets ganadores).
 export async function getGameWinners(req: RequestAuth, res: Response) {
     try {
         if (req.user.role !== 'admin') {
@@ -69,10 +69,10 @@ export async function getGameWinners(req: RequestAuth, res: Response) {
                    COUNT(*)::int AS tickets
             FROM game_winners gw
             INNER JOIN users u ON u.id = gw.user_id
-            WHERE gw.game_id = $1
+            WHERE gw.game_id = $1 AND gw.round_number = 5
             GROUP BY gw.round_number, gw.spin_number, gw.winning_number, gw.prize_name,
                      u.id, u.name, u.last_name, u.email, u.phone_number
-            ORDER BY gw.round_number ASC, gw.spin_number ASC, u.name ASC, u.last_name ASC
+            ORDER BY gw.spin_number ASC, u.name ASC, u.last_name ASC
         `;
 
         const response = await pool.query(query, [game_id, ]);
