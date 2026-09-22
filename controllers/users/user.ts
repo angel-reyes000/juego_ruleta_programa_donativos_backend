@@ -42,9 +42,8 @@ export async function getUsersWithDonation (req: Request, res: Response) {
         const { game_id } = req.query;
 
         const queryUsers = `
-            SELECT COUNT(DISTINCT d.user_id) AS total_users
-            FROM donations d
-            INNER JOIN tickets t ON t.donation_id = d.id
+            SELECT COUNT(*) AS total_users
+            FROM tickets t
             WHERE t.game_id = $1
         `;
 

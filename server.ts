@@ -93,7 +93,7 @@ io.on("connection", (socket: Socket) => {
                 id: index + 1,
                 label: `${index + 1}. ${premio.name}`,
             })),
-            itemLabelFontSizeMax: 20,
+            itemLabelFontSizeMax: 32,
         });
     })
 
