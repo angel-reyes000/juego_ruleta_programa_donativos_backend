@@ -101,7 +101,7 @@ Todas las respuestas son JSON. Los nombres de parámetros reflejan el código ex
 | GET | `/api/users` | No | `getUsers`; devuelve todos los registros de `users`. Revisar exposición de datos antes de usar en producción. |
 | POST | `/api/users` | No | `postUser`; crea usuario, valida longitudes, hashea contraseña con bcrypt y rechaza email repetido. |
 | POST | `/api/loginUser` | No | `loginUser`; valida credenciales y devuelve `{ token }`. |
-| GET | `/api/getUsersWithDonation?game_id=...` | Sí | Cuenta usuarios distintos con tickets en un juego. |
+| GET | `/api/getUsersWithDonation?game_id=...` | Sí | Cuenta el total de tickets (espacios ocupados) del juego; el nombre del endpoint y de la variable de respuesta se conservan por compatibilidad con el frontend. |
 | GET | `/api/getDataUser` | Sí | Devuelve el payload del JWT. |
 
 Registro: `name`, `last_name`, `email`, `password`, `phone_number`. El teléfono debe tener exactamente 10 caracteres; nombre/apellido máximo 30, email máximo 50 y contraseña máximo 15.
@@ -168,7 +168,7 @@ Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→1
 | GET | `/api/getWinningTickets?game_id=...` | Sí | Historial descendente de resultados. |
 | GET | `/api/getGameWinners?game_id=...` | Sí/admin | Ganadores de todas las rondas, un renglón por usuario y giro (`round_number`, `spin_number`, `winning_number`, `prize_name`, `name`, `last_name`, `email`, `phone_number`, `tickets`). |
 
-`postTickets` obtiene el juego activo, impone `max_capacity` por usuarios distintos y crea los tickets, cada uno con un número inicial aleatorio en `tickets_numbers`.
+`postTickets` obtiene el juego activo, impone `max_capacity` por cantidad total de tickets ocupados en el juego (cada ticket equivale a un lugar/cupo; si `tickets_ocupados + total_tickets > max_capacity` se rechaza la asignación completa) y crea los tickets, cada uno con un número inicial aleatorio en `tickets_numbers`.
 
 ## Socket.IO
 

@@ -77,27 +77,18 @@ export async function postTickets (user_id: number, donation_id: number, total_t
 
         const game_max_capacity = dataGame.rows[0].max_capacity;
 
-        const queryCurrentMaxCapacity = `
-            SELECT
-                COUNT(DISTINCT d.user_id) AS total_users,
-                EXISTS (
-                    SELECT 1
-                    FROM tickets existing_tickets
-                    WHERE existing_tickets.game_id = $1
-                      AND existing_tickets.user_id = $2
-                ) AS user_already_participating
-            FROM donations d
-            INNER JOIN tickets t ON t.donation_id = d.id
-            WHERE t.game_id = $1
+        const queryCurrentOccupiedSlots = `
+            SELECT COUNT(*) AS total_tickets
+            FROM tickets
+            WHERE game_id = $1
         `;
 
-        const responseUsers = await pool.query(queryCurrentMaxCapacity, [game_id, user_id]);
+        const responseTickets = await pool.query(queryCurrentOccupiedSlots, [game_id]);
 
-        const quantityUsers = Number(responseUsers.rows[0].total_users)
-        const userAlreadyParticipating = responseUsers.rows[0].user_already_participating;
+        const occupiedSlots = Number(responseTickets.rows[0].total_tickets)
 
-        if (quantityUsers >= game_max_capacity && !userAlreadyParticipating) {
-            return "Sin asignacion de ticket por que se alcanzo la maximo cantidad de donadores participantes."
+        if (occupiedSlots + total_tickets > game_max_capacity) {
+            return "Sin asignacion de ticket por que no hay suficiente cupo disponible en el juego."
         }
 
         const query = `INSERT INTO tickets (user_id, game_id, donation_id)

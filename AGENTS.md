@@ -55,7 +55,7 @@ El JWT contiene `id`, `name`, `last_name`, `role`, `email`, `phone_number` y `cr
 - Los juegos crean cinco rondas con capacidades de spins `[5, 4, 1, 1, 10]`.
 - Los premios usan rondas 1 a 5 y números de ruleta 1 a 10.
 - Los giros y eliminaciones de tickets ganadores requieren rol `admin`.
-- La capacidad máxima se calcula por usuarios distintos participantes, no por cantidad total de tickets.
+- La capacidad máxima se calcula por cantidad total de tickets ocupados en el juego (cada ticket es un espacio), no por usuarios distintos.
 
 ## API y eventos
 
