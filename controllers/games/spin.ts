@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { randomInt } from "node:crypto";
 import { pool } from "../../database/db.js";
 import { reassignActiveTicketNumbers } from "./tickets_numbers.js";
+import { fillGameCapacity } from "./ticket.js";
 
 interface RequestAuth extends Request {
     user: {
@@ -85,6 +86,8 @@ export async function postSpin (req: RequestAuth, res: Response) {
         const doneSpins = counts.get(currentRound.id) ?? 0;
         const totalGameSpins = Array.from(counts.values()).reduce((sum, total) => sum + total, 0);
 
+        let extra_tickets = { added: 0, before: 0, after: 0 };
+
         if (totalGameSpins === 0) {
             const dataTickets = await client.query(`SELECT COUNT(*)::int AS total FROM tickets WHERE game_id = $1`, [game_id]);
 
@@ -95,7 +98,9 @@ export async function postSpin (req: RequestAuth, res: Response) {
                 })
             }
 
-            // Primer giro: se cierra el cupo y se reparten los numeros de forma pareja entre todos los tickets.
+            // Primer giro: se cierra el cupo, se completa la capacidad maxima repartiendo tickets de forma
+            // equitativa (si ya estaba llena no cambia nada) y se reparten los numeros de forma pareja.
+            extra_tickets = await fillGameCapacity(client, game_id);
             await reassignActiveTicketNumbers(client, game_id);
         }
 
@@ -283,6 +288,7 @@ export async function postSpin (req: RequestAuth, res: Response) {
             active_tickets: dataActive.rows[0].total,
             winners: winners,
             auto_assigned: auto_assigned,
+            extra_tickets: extra_tickets,
         })
 
     } catch (error) {

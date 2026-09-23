@@ -2,6 +2,8 @@ import { response, type Request, type Response } from "express";
 import { pool } from "../../database/db.js";
 import { postTicketNumber } from "./tickets_numbers.js";
 import { error } from "node:console";
+import { randomInt } from "node:crypto";
+import type { PoolClient } from "pg";
 
 interface RequestAuth extends Request {
     user: {
@@ -55,6 +57,64 @@ export async function activeGameHasStarted () {
     const response = await pool.query(query);
 
     return (response.rowCount ?? 0) > 0;
+}
+
+// Al iniciar el sorteo, si no se alcanzo la capacidad maxima se reparten los tickets faltantes entre los
+// participantes de forma proporcional a los tickets que ya tienen (quien tiene mas recibe mas; algunos pueden
+// no recibir ninguno). Si ya se alcanzo la capacidad no hace nada. Debe ejecutarse dentro de la transaccion del cliente recibido.
+export async function fillGameCapacity (client: PoolClient, game_id: number) {
+    const dataGame = await client.query(`SELECT max_capacity FROM games WHERE id = $1`, [game_id]);
+    const max_capacity = Number(dataGame.rows[0]?.max_capacity);
+
+    const dataUsers = await client.query(
+        `SELECT user_id, COUNT(*)::int AS total, MAX(donation_id) AS donation_id
+         FROM tickets WHERE game_id = $1 GROUP BY user_id`,
+        [game_id]
+    );
+
+    const participants: Array<{ user_id: number, total: number, donation_id: number }> = dataUsers.rows;
+    const current = participants.reduce((sum, p) => sum + p.total, 0);
+
+    if (!Number.isFinite(max_capacity) || participants.length === 0 || current >= max_capacity) {
+        return { added: 0, before: current, after: current };
+    }
+
+    // Se baraja para que los empates en los residuos se resuelvan al azar.
+    for (let i = participants.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [participants[i], participants[j]] = [participants[j]!, participants[i]!];
+    }
+
+    // Metodo del mayor residuo: parte entera proporcional + los tickets sobrantes a los mayores residuos.
+    const missing = max_capacity - current;
+    const extra = participants.map((p) => Math.floor((missing * p.total) / current));
+    let leftover = missing - extra.reduce((sum, value) => sum + value, 0);
+
+    const byRemainder = participants
+        .map((p, index) => ({ index, remainder: (missing * p.total) % current }))
+        .sort((a, b) => b.remainder - a.remainder);
+
+    for (let k = 0; leftover > 0; k = (k + 1) % byRemainder.length, leftover--) {
+        extra[byRemainder[k]!.index]!++;
+    }
+
+    const user_ids: number[] = [];
+    const donation_ids: number[] = [];
+
+    participants.forEach((p, index) => {
+        for (let k = 0; k < extra[index]!; k++) {
+            user_ids.push(p.user_id);
+            donation_ids.push(p.donation_id);
+        }
+    });
+
+    await client.query(
+        `INSERT INTO tickets (user_id, game_id, donation_id)
+         SELECT u, $1, d FROM unnest($2::int[], $3::int[]) AS x(u, d)`,
+        [game_id, user_ids, donation_ids]
+    );
+
+    return { added: user_ids.length, before: current, after: current + user_ids.length };
 }
 
 export async function postTickets (user_id: number, donation_id: number, total_tickets: number) {
