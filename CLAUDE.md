@@ -144,11 +144,13 @@ Un premio usa `name`, `type`, `value`, `round`, `roulette_number` y `game_id`. L
 | GET | `/api/getCurrentRoundGame?game_id=...` | Sí | Devuelve la primera ronda con giros pendientes (o la 5 si terminó) con `total_current_spins` = giros hechos **en esa ronda**. |
 | POST | `/api/postSpin` | Sí/admin | Giro transaccional (ver reglas). Solo usa `round_id` del body para ubicar el juego; la ronda la decide el servidor. |
 
-`postRounds` crea cinco rondas con spins configurados `[5, 4, 1, 1, 10]`. `getSpins` sigue incompleta y no es una API funcional.
+`postRounds` crea cinco rondas con spins configurados `[5, 4, 1, 1, 9]`. `getSpins` sigue incompleta y no es una API funcional.
 
 ### Reglas del sorteo (implementadas en `postSpin`)
 
 Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→10, R5 los 10 restantes ganan premio.
+
+En la ronda 5 solo hay 9 giros reales (`rounds.spins = 9`): cuando el giro 9 completa la ronda y queda exactamente un número sin salir, `postSpin` le asigna automáticamente el premio a ese número (mismo registro en `spins`, `winning_tickets` y `game_winners`, con `spin_number = 10`, sin necesidad de otro giro del admin). Ese resultado se devuelve en el campo `auto_assigned` de la respuesta (mismo shape que el giro normal, incluyendo `winners`); es `null` cuando no aplica. El frontend muestra el contador "Giro X/10" en la ronda 5 (en vez de "X/9") para que el giro automático se vea como el décimo giro; internamente `rounds.spins` sigue en 9 porque es lo que determina cuándo el servidor considera terminada la ronda.
 
 - El cupo se cierra en el primer giro del juego: `activeGameHasStarted` bloquea `paymentIntent`, `createPayment` y `postTickets`. El admin puede iniciar cuando quiera, pero necesita al menos un ticket.
 - En el primer giro y al final de cada ronda (1-4) `reassignActiveTicketNumbers` baraja con `crypto.randomInt` y reparte números 1-10 en rotación: cada número tiene la misma cantidad de tickets (500 c/u con 5,000) y con 10 tickets cada uno recibe uno distinto.
@@ -157,7 +159,7 @@ Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→1
 - Al completar una ronda 1-4 todos los tickets de los usuarios que no ganaron ningún giro de la ronda (sin registro en `game_winners` para esa ronda) pasan a `status='eliminated'` con `eliminated_round`; los usuarios que sí ganaron siguen con todos sus tickets, que se renumeran. Ya no se borran tickets. Con usuarios de varios tickets pueden avanzar más de 2,500 / 1,000 / 100 / 10 tickets.
 - En todas las rondas ese ticket ganador se registra en `game_winners` (rondas 1-3: avanza; rondas 4-5: además recibe el premio de ese giro). `postSpin` solo devuelve `winners` (para la animación) en las rondas 4 y 5.
 - Cada giro inserta también su fila en `winning_tickets` (`spin_number` es 1-based dentro de la ronda). `postSpin` bloquea el juego con `SELECT ... FOR UPDATE` y todo va en una transacción.
-- Respuesta de `postSpin`: fila del spin más `game_id`, `round_number`, `spin_number`, `prize_name`, `round_completed`, `active_tickets` y `winners` (`[{user_id, display_name}]`, nombre + inicial del apellido).
+- Respuesta de `postSpin`: fila del spin más `game_id`, `round_number`, `spin_number`, `prize_name`, `round_completed`, `active_tickets`, `winners` (`[{user_id, display_name}]`, nombre + inicial del apellido) y `auto_assigned` (ver ronda 5 arriba; `null` salvo en el giro 9 de la ronda 5).
 - Los endpoints `deleteTicket` y `postWinningTickets` se eliminaron: el primero borraba a los ganadores y el segundo permitía a cualquier usuario escribir resultados.
 
 ### Tickets y resultados

@@ -88,7 +88,8 @@ export async function postRounds (game_id: number) {
                     list_rounds.push(result_four.rows[0])
                     break;
                 case 5:
-                    const result_five = await pool.query(query, [i, 10, game_id])
+                    // 9 giros reales: el decimo numero restante se asigna automaticamente sin necesidad de girar.
+                    const result_five = await pool.query(query, [i, 9, game_id])
                     list_rounds.push(result_five.rows[0])
                     break;
             }

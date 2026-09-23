@@ -52,7 +52,7 @@ El JWT contiene `id`, `name`, `last_name`, `role`, `email`, `phone_number` y `cr
 - Una donación válida está entre 100 y 10,000 MXN y es múltiplo de 100.
 - Cada 100 MXN genera un ticket para el juego activo.
 - Cada ticket recibe un número aleatorio entre 1 y 10 en `tickets_numbers`.
-- Los juegos crean cinco rondas con capacidades de spins `[5, 4, 1, 1, 10]`.
+- Los juegos crean cinco rondas con capacidades de spins `[5, 4, 1, 1, 9]`; en la ronda 5 el décimo número (el que queda sin girar) recibe su premio automáticamente.
 - Los premios usan rondas 1 a 5 y números de ruleta 1 a 10.
 - Los giros y eliminaciones de tickets ganadores requieren rol `admin`.
 - La capacidad máxima se calcula por cantidad total de tickets ocupados en el juego (cada ticket es un espacio), no por usuarios distintos.
