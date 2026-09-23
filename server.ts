@@ -79,6 +79,10 @@ app.get("/api/getGameWinners", auth, getGameWinners);
 
 io.on("connection", (socket: Socket) => {
 
+    socket.on("extraTickets", (added: number, before: number, after: number) => {
+        io.emit("extraTickets", added, before, after);
+    })
+
     socket.on("spin", (winning_number, dataRoulette, winners) => {
         //console.log("Evento espin recibido", socket.id)
         io.emit("spin", winning_number, dataRoulette, winners);
