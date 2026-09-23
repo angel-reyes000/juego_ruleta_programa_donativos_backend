@@ -172,6 +172,84 @@ export async function postSpin (req: RequestAuth, res: Response) {
 
         const round_completed = spin_number === currentRound.spins;
 
+        // Ronda 5: solo hay 9 giros reales. Si con este giro se completa la ronda y queda
+        // exactamente un numero sin salir, no tiene caso girar por el: se le asigna el premio
+        // automaticamente al ticket que lo tenga, igual que un giro normal pero sin animacion de por medio.
+        let auto_assigned: {
+            id: number
+            winning_number: number
+            round_id: number
+            game_id: number
+            round_number: number
+            spin_number: number
+            prize_name: string | null
+            winners: Array<{ user_id: number, display_name: string }>
+        } | null = null;
+
+        if (round_completed && currentRound.number === 5) {
+            const dataUsedAfter = await client.query(`SELECT winning_number FROM spins WHERE round_id = $1`, [currentRound.id]);
+            const usedAfter = new Set<number>(dataUsedAfter.rows.map((row: { winning_number: number }) => row.winning_number));
+            const remaining = Array.from({ length: 10 }, (_, index) => index + 1).filter((number) => !usedAfter.has(number));
+
+            if (remaining.length === 1) {
+                const auto_winning_number = remaining[0]!;
+                const auto_spin_number = spin_number + 1;
+
+                const dataAutoSpin = await client.query(
+                    `INSERT INTO spins (winning_number, round_id) VALUES ($1, $2) RETURNING *`,
+                    [auto_winning_number, currentRound.id]
+                );
+                const autoSpin = dataAutoSpin.rows[0];
+
+                const dataAutoPrize = await client.query(
+                    `SELECT name FROM prizes WHERE game_id = $1 AND round = $2 AND roulette_number = $3 LIMIT 1`,
+                    [game_id, currentRound.number, auto_winning_number]
+                );
+                const auto_prize_name: string | null = dataAutoPrize.rows.length === 0 ? null : dataAutoPrize.rows[0].name;
+
+                await client.query(
+                    `INSERT INTO winning_tickets (winning_number, game_id, round_number, spin_number, prize_name)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [auto_winning_number, game_id, currentRound.number, auto_spin_number, auto_prize_name]
+                );
+
+                const dataAutoWinners = await client.query(
+                    `INSERT INTO game_winners (game_id, user_id, ticket_id, round_number, spin_number, winning_number, prize_name)
+                     SELECT t.game_id, t.user_id, t.id, $2, $3, $4, $5
+                     FROM tickets t
+                     WHERE t.game_id = $1 AND t.status = 'active'
+                     AND t.id IN (
+                         SELECT MIN(t2.id)
+                         FROM tickets t2
+                         INNER JOIN tickets_numbers tn ON tn.ticket_id = t2.id
+                         WHERE t2.game_id = $1 AND t2.status = 'active' AND tn.number = $4
+                         GROUP BY t2.user_id
+                     )
+                     RETURNING user_id`,
+                    [game_id, currentRound.number, auto_spin_number, auto_winning_number, auto_prize_name]
+                );
+
+                const auto_user_ids: number[] = Array.from(new Set<number>(dataAutoWinners.rows.map((row: { user_id: number }) => row.user_id)));
+
+                const dataAutoUsers = await client.query(
+                    `SELECT id, name, last_name FROM users WHERE id = ANY($1::int[]) ORDER BY id`,
+                    [auto_user_ids]
+                );
+
+                auto_assigned = {
+                    ...autoSpin,
+                    game_id: game_id,
+                    round_number: currentRound.number,
+                    spin_number: auto_spin_number,
+                    prize_name: auto_prize_name,
+                    winners: dataAutoUsers.rows.map((user: { id: number, name: string, last_name: string }) => ({
+                        user_id: user.id,
+                        display_name: `${user.name} ${user.last_name.charAt(0)}.`,
+                    })),
+                };
+            }
+        }
+
         // Fin de ronda (1-4): avanzan los usuarios que ganaron algun giro de la ronda (con todos sus tickets);
         // los tickets de los demas usuarios se eliminan. A los tickets que siguen se les reasigna numero al azar.
         if (round_completed && currentRound.number < 5) {
@@ -204,6 +282,7 @@ export async function postSpin (req: RequestAuth, res: Response) {
             round_completed: round_completed,
             active_tickets: dataActive.rows[0].total,
             winners: winners,
+            auto_assigned: auto_assigned,
         })
 
     } catch (error) {
