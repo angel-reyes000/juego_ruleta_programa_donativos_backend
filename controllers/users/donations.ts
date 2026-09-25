@@ -156,7 +156,8 @@ export async function postDonation (req: RequestAuth, res: Response) {
         const ticketMessage  = await postTickets(user_id, donation_id, total_tickets);
 
         return res.status(200).json({
-            "message": ticketMessage
+            "message": ticketMessage,
+            "donation_id": donation_id
         })
         
     } catch (error) {
