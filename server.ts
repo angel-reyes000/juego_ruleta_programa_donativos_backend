@@ -14,6 +14,7 @@ import { getCurrentRoundGame, getRounds } from './controllers/games/round.js';
 import { postSpin } from './controllers/games/spin.js';
 import { getTickets } from './controllers/games/ticket.js';
 import { getGameWinners, getWinningTickets } from './controllers/games/winning_tickets.js';
+import { getSalesPerson } from './controllers/users/salesperson.js';
 
 dotenv.config();
 
@@ -64,7 +65,6 @@ app.delete("/api/deletePrize", auth, deletePrize);
 app.get("/api/getRounds", auth, getRounds);
 app.get("/api/getCurrentRoundGame", auth, getCurrentRoundGame);
 
-
 //Spins
 app.post("/api/postSpin", auth, postSpin);
 
@@ -74,6 +74,9 @@ app.get("/api/getTickets", auth, getTickets);
 //Winning tickets
 app.get("/api/getWinningTickets", auth, getWinningTickets);
 app.get("/api/getGameWinners", auth, getGameWinners);
+
+//Salesperson
+app.get("/api/getSalesPerson", auth, getSalesPerson);
 
 
 
