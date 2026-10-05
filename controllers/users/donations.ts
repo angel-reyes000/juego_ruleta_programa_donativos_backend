@@ -98,7 +98,7 @@ export async function postDonation (req: RequestAuth, res: Response) {
             })
         }
 
-        const { amount, card_holder } = req.body;
+        let { amount, card_holder, salesperson_id } = req.body;
 
         if (!amount || amount < 100) {
             return res.status(400).json({
@@ -116,6 +116,10 @@ export async function postDonation (req: RequestAuth, res: Response) {
             return res.status(400).json({
                 "error": "Campo faltante: Nombre y apellido de tarjetahabiente."
             })
+        }
+
+        if (!salesperson_id) {
+            salesperson_id = null
         }
 
         let total_amount = amount;
@@ -142,10 +146,10 @@ export async function postDonation (req: RequestAuth, res: Response) {
 
         const user_id = req.user?.id;
         
-        const query = `INSERT INTO donations (user_id, amount, card_holder)
-                        VALUES ($1, $2, $3) RETURNING *`;
+        const query = `INSERT INTO donations (user_id, amount, card_holder, salesperson_id)
+                        VALUES ($1, $2, $3, $4) RETURNING *`;
 
-        const values = [user_id, amount, card_holder];
+        const values = [user_id, amount, card_holder, salesperson_id];
 
         const data = await pool.query(query, values)
 
