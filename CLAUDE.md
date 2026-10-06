@@ -43,6 +43,8 @@ El servidor HTTP escucha en el puerto `4000`, independientemente de `PORT`, que 
 ```text
 server.ts                         # Arranque, middleware, rutas y Socket.IO
 database/db.ts                    # Pool PostgreSQL y conexión inicial
+database/001_create_tables.sql    # Estructura SQL de todas las tablas
+database/002_querys.sql           # Consultas útiles
 controllers/
 	users/user.ts                   # Registro, login, JWT, auth y consultas de usuarios
 	users/dataUser.ts               # Devuelve el usuario decodificado del JWT
@@ -119,10 +121,10 @@ Ambas operaciones esperan `amount` y `card_holder`; `paymentIntent` también exi
 
 | Método | Ruta | Auth | Función |
 |---|---|---|---|
-| GET | `/api/getGames` | Sí/admin | Lista juegos. |
+| GET | `/api/getGames` | Sí/admin | Lista juegos (`SELECT *` más `has_started`: true si el juego ya tiene giros). |
 | GET | `/api/getCurrentGame` | Sí | Devuelve el juego cuyo timestamp actual está entre inicio y fin. |
-| POST | `/api/postGames` | Sí/admin | Inserta juego, crea sus premios de `prize_list` y cinco rondas. |
-| PUT | `/api/updateGame` | Sí/admin | Actualiza `title`, fechas, capacidad y descripción por `gameId`. |
+| POST | `/api/postGames` | Sí/admin | Inserta juego (acepta `distribute_tickets` booleano, por defecto `false`), crea sus premios de `prize_list` y cinco rondas. |
+| PUT | `/api/updateGame` | Sí/admin | Actualiza `title`, fechas, capacidad, descripción y `distribute_tickets` por `gameId`. `distribute_tickets` solo cambia mientras el juego no tenga giros; después se ignora. Devuelve también `has_started`. |
 
 Al crear un juego, `postGames` llama a `postPrizes(gameID, prize_list)` y `postRounds(gameID)`. Esas llamadas son asíncronas y actualmente no se esperan (`await`); tenerlo presente al corregir consistencia o errores parciales.
 
@@ -152,6 +154,7 @@ Flujo de tickets: R1 5,000→2,500, R2 2,500→1,000, R3 1,000→100, R4 100→1
 
 En la ronda 5 solo hay 9 giros reales (`rounds.spins = 9`): cuando el giro 9 completa la ronda y queda exactamente un número sin salir, `postSpin` le asigna automáticamente el premio a ese número (mismo registro en `spins`, `winning_tickets` y `game_winners`, con `spin_number = 10`, sin necesidad de otro giro del admin). Ese resultado se devuelve en el campo `auto_assigned` de la respuesta (mismo shape que el giro normal, incluyendo `winners`); es `null` cuando no aplica. El frontend muestra el contador "Giro X/10" en la ronda 5 (en vez de "X/9") para que el giro automático se vea como el décimo giro; internamente `rounds.spins` sigue en 9 porque es lo que determina cuándo el servidor considera terminada la ronda.
 
+- Repartición de tickets (`games.distribute_tickets`, checkbox "Reparticion de tickets" en `/configuracion`, modales de crear y editar, deshabilitado cuando `has_started`): si está activa (por defecto desactivada) el primer giro llama a `fillGameCapacity`; si está desactivada no se reparten tickets y el sorteo inicia con los tickets existentes aunque no se llene la capacidad.
 - El cupo se cierra en el primer giro del juego: `activeGameHasStarted` bloquea `paymentIntent`, `createPayment` y `postTickets`. El admin puede iniciar cuando quiera, pero necesita al menos un ticket.
 - En el primer giro y al final de cada ronda (1-4) `reassignActiveTicketNumbers` baraja con `crypto.randomInt` y reparte números 1-10 en rotación: cada número tiene la misma cantidad de tickets (500 c/u con 5,000) y con 10 tickets cada uno recibe uno distinto.
 - Dentro de una ronda el número ganador no se repite (además hay índice único `spins(round_id, winning_number)`).
@@ -190,7 +193,7 @@ El servidor Socket.IO permite el origen configurado en `API_KEY_FRONTEND`; Expre
 `database/db.ts` exporta `pool`, un `pg.Pool` configurado con `HOST`, `PORT`, `DATABASE_NAME`, `USER` y `PASSWORD`. Las consultas hacen referencia a estas tablas y columnas:
 
 - `users`: `id`, `name`, `last_name`, `email`, `password`, `phone_number`, `role`, `created_at`.
-- `games`: `id`, `title`, `start_datetime`, `end_datetime`, `max_capacity`, `description`.
+- `games`: `id`, `title`, `start_datetime`, `end_datetime`, `max_capacity`, `description`, `distribute_tickets` (boolean, default `false`).
 - `prizes`: `id`, `name`, `type`, `value`, `round`, `roulette_number`, `game_id`.
 - `rounds`: `id`, `number`, `spins`, `game_id`.
 - `spins`: `id`, `winning_number`, `round_id`.
@@ -199,8 +202,9 @@ El servidor Socket.IO permite el origen configurado en `API_KEY_FRONTEND`; Expre
 - `tickets_numbers`: `id`, `number`, `ticket_id`.
 - `winning_tickets`: `id`, `winning_number`, `game_id`, `round_number`, `spin_number`, `prize_name`, `created_at`.
 - `game_winners`: `id`, `game_id`, `user_id`, `ticket_id`, `round_number`, `spin_number`, `winning_number`, `prize_name`, `created_at`.
+- `salesperson`: `id`, `name`, `last_name`, `phone_number`, `email`, `created_at`; `donations` tiene además `salesperson_id` (opcional) y `created_at`.
 
-El esquema de la base de datos se administra a mano fuera de este repositorio: el código de `postSpin`, `getTickets` y `getGameWinners` requiere estas columnas y tabla, y el índice único `spins(round_id, winning_number)` es opcional.
+El esquema completo está en `database/001_create_tables.sql` y `database/002_querys.sql` (consultas útiles); en desarrollo no se guardan migraciones: los cambios de tablas se hacen directamente en `001_create_tables.sql` y la base se recrea a mano: el código de `postSpin`, `getTickets` y `getGameWinners` requiere estas columnas y tabla, y el índice único `spins(round_id, winning_number)` es opcional.
 
 Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evitar interpolar valores del usuario en SQL. Las operaciones relacionadas con donación, tickets y capacidad no están dentro de una transacción; una modificación que requiera atomicidad debe usar `pool.connect()`, `BEGIN`, `COMMIT` y `ROLLBACK`.
 

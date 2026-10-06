@@ -27,6 +27,7 @@ CREATE TABLE games (
 	end_datetime TIMESTAMP NOT NULL,
 	max_capacity INT NOT NULL DEFAULT 5000,
 	description TEXT NOT NULL,
+	distribute_tickets BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
