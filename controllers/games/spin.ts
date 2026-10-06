@@ -100,7 +100,13 @@ export async function postSpin (req: RequestAuth, res: Response) {
 
             // Primer giro: se cierra el cupo, se completa la capacidad maxima repartiendo tickets de forma
             // equitativa (si ya estaba llena no cambia nada) y se reparten los numeros de forma pareja.
-            extra_tickets = await fillGameCapacity(client, game_id);
+            // Solo si el juego tiene activada la reparticion de tickets (games.distribute_tickets).
+            const dataGame = await client.query(`SELECT distribute_tickets FROM games WHERE id = $1`, [game_id]);
+
+            if (dataGame.rows[0].distribute_tickets) {
+                extra_tickets = await fillGameCapacity(client, game_id);
+            }
+
             await reassignActiveTicketNumbers(client, game_id);
         }
 

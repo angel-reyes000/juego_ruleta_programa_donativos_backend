@@ -19,7 +19,7 @@ export async function getGames (req: RequestAuth, res: Response) {
             })
         }
 
-        const query = `SELECT * FROM games`;
+        const query = `SELECT *, EXISTS (SELECT 1 FROM spins s INNER JOIN rounds r ON r.id = s.round_id WHERE r.game_id = games.id) AS has_started FROM games`;
 
         const data = await pool.query(query);
 
@@ -59,6 +59,8 @@ export async function postGames (req: RequestAuth, res: Response) {
 
         const roleUser = req.user.role;
         const { title, start_datetime, end_datetime, max_capacity, description, prize_list } = req.body;
+        // Si no se envia, la reparticion de tickets queda desactivada.
+        const distribute_tickets = typeof req.body.distribute_tickets === 'boolean' ? req.body.distribute_tickets : false;
 
         if (roleUser !== 'admin') {
             return res.status(400).json({
@@ -84,10 +86,10 @@ export async function postGames (req: RequestAuth, res: Response) {
             })
         }
 
-        const query = `INSERT INTO games (title, start_datetime, end_datetime, max_capacity, description)
-                        VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+        const query = `INSERT INTO games (title, start_datetime, end_datetime, max_capacity, description, distribute_tickets)
+                        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
 
-        const values = [title, start_datetime, end_datetime, max_capacity, description];
+        const values = [title, start_datetime, end_datetime, max_capacity, description, distribute_tickets];
 
         const response = await pool.query(query, values);
 
@@ -114,6 +116,8 @@ export async function updateGame (req: RequestAuth, res: Response) {
     try {
         const roleUser = req.user.role;
         const { title, start_datetime, end_datetime, max_capacity, description, prize_list, gameId } = req.body;
+        // undefined = no cambiar; una vez iniciado el juego el valor ya no se modifica.
+        const distribute_tickets = typeof req.body.distribute_tickets === 'boolean' ? req.body.distribute_tickets : null;
 
         if (roleUser !== 'admin') {
             return res.status(400).json({
@@ -140,10 +144,15 @@ export async function updateGame (req: RequestAuth, res: Response) {
         }
 
         const query = `UPDATE games 
-                       SET title = $1, start_datetime = $2, end_datetime = $3, max_capacity = $4, description = $5 
-                       WHERE id = $6 RETURNING *`;
+                       SET title = $1, start_datetime = $2, end_datetime = $3, max_capacity = $4, description = $5,
+                           distribute_tickets = CASE
+                               WHEN EXISTS (SELECT 1 FROM spins s INNER JOIN rounds r ON r.id = s.round_id WHERE r.game_id = games.id)
+                               THEN distribute_tickets
+                               ELSE COALESCE($7::boolean, distribute_tickets)
+                           END
+                       WHERE id = $6 RETURNING *, EXISTS (SELECT 1 FROM spins s INNER JOIN rounds r ON r.id = s.round_id WHERE r.game_id = games.id) AS has_started`;
 
-        const values = [title, start_datetime, end_datetime, max_capacity, description, gameId];
+        const values = [title, start_datetime, end_datetime, max_capacity, description, gameId, distribute_tickets];
 
         const response = await pool.query(query, values);
 
