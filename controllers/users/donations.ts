@@ -88,7 +88,10 @@ export async function paymentIntent (req: Request, res: Response) {
     }
 }
 
+// Donacion -> tickets -> numeros de ticket en una sola transaccion: si algo falla se hace ROLLBACK de todo.
 export async function postDonation (req: RequestAuth, res: Response) {
+    const client = await pool.connect();
+
     try {
         const token = req.headers.authorization?.split(" ")[1];
 
@@ -138,36 +141,49 @@ export async function postDonation (req: RequestAuth, res: Response) {
             }
         }
 
-        if (await activeGameHasStarted()) {
+        await client.query("BEGIN");
+
+        // Bloquea el juego activo antes de validar: serializa con postSpin (que tambien lo bloquea)
+        // y con otras donaciones, asi no entran tickets despues del primer giro ni se excede el cupo.
+        await client.query(`SELECT id FROM games
+                            WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1 FOR UPDATE`);
+
+        if (await activeGameHasStarted(client)) {
+            await client.query("ROLLBACK");
             return res.status(400).json({
                 "error": "El sorteo ya inicio, ya no se aceptan donativos para este juego."
             })
         }
 
         const user_id = req.user?.id;
-        
+
         const query = `INSERT INTO donations (user_id, amount, card_holder, salesperson_id)
                         VALUES ($1, $2, $3, $4) RETURNING *`;
 
         const values = [user_id, amount, card_holder, salesperson_id];
 
-        const data = await pool.query(query, values)
+        const data = await client.query(query, values)
 
         const result = await data.rows[0];
 
         const donation_id = result.id;
 
-        const ticketMessage  = await postTickets(user_id, donation_id, total_tickets);
+        const ticketMessage  = await postTickets(client, user_id, donation_id, total_tickets);
+
+        await client.query("COMMIT");
 
         return res.status(200).json({
             "message": ticketMessage,
             "donation_id": donation_id
         })
-        
+
     } catch (error) {
+        await client.query("ROLLBACK").catch(() => undefined);
         console.log("Error in createPayment", error)
         return res.status(400).json({
             "error": "Error al procesar el pago."
         })
+    } finally {
+        client.release();
     }
 }

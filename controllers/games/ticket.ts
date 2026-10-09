@@ -3,7 +3,7 @@ import { pool } from "../../database/db.js";
 import { postTicketNumber } from "./tickets_numbers.js";
 import { error } from "node:console";
 import { randomInt } from "node:crypto";
-import type { PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 interface RequestAuth extends Request {
     user: {
@@ -45,7 +45,8 @@ export async function getTickets (req: RequestAuth, res: Response) {
 }
 
 // El cupo se cierra cuando el juego activo hace su primer giro.
-export async function activeGameHasStarted () {
+// Si se recibe un cliente, la consulta se ejecuta dentro de su transaccion.
+export async function activeGameHasStarted (client: Pool | PoolClient = pool) {
     const query = `SELECT 1 FROM games g
                    WHERE CURRENT_TIMESTAMP BETWEEN g.start_datetime AND g.end_datetime
                    AND EXISTS (
@@ -54,7 +55,7 @@ export async function activeGameHasStarted () {
                        WHERE r.game_id = g.id
                    ) LIMIT 1`;
 
-    const response = await pool.query(query);
+    const response = await client.query(query);
 
     return (response.rowCount ?? 0) > 0;
 }
@@ -117,19 +118,22 @@ export async function fillGameCapacity (client: PoolClient, game_id: number) {
     return { added: user_ids.length, before: current, after: current + user_ids.length };
 }
 
-export async function postTickets (user_id: number, donation_id: number, total_tickets: number) {
+// Debe ejecutarse dentro de la transaccion del cliente recibido (la de postDonation): tickets y numeros
+// se confirman junto con la donacion; si algo falla se relanza el error para que se haga ROLLBACK de todo.
+export async function postTickets (client: PoolClient, user_id: number, donation_id: number, total_tickets: number) {
     try {
 
-        if (await activeGameHasStarted()) {
+        if (await activeGameHasStarted(client)) {
             return "El sorteo ya inicio, ya no se asignan tickets."
         }
 
-        const queryGame = `SELECT id, max_capacity FROM games 
-                        WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1`;
+        // FOR UPDATE: serializa con postSpin y con otras donaciones para que el cupo no se exceda.
+        const queryGame = `SELECT id, max_capacity FROM games
+                        WHERE CURRENT_TIMESTAMP BETWEEN start_datetime AND end_datetime LIMIT 1 FOR UPDATE`;
 
-        const dataGame = await pool.query(queryGame);
+        const dataGame = await client.query(queryGame);
 
-        const game_id = dataGame.rows[0].id;
+        const game_id = dataGame.rows[0]?.id;
 
         if (!game_id) {
             return "No hay juegos actualmente activos para proporcionarte tickets."
@@ -143,7 +147,7 @@ export async function postTickets (user_id: number, donation_id: number, total_t
             WHERE game_id = $1
         `;
 
-        const responseTickets = await pool.query(queryCurrentOccupiedSlots, [game_id]);
+        const responseTickets = await client.query(queryCurrentOccupiedSlots, [game_id]);
 
         const occupiedSlots = Number(responseTickets.rows[0].total_tickets)
 
@@ -157,17 +161,17 @@ export async function postTickets (user_id: number, donation_id: number, total_t
 
         let list_tickets: Array<object> = [];
         for (let i = 0; i < total_tickets; i++) {
-            const result = await pool.query(query, values);
+            const result = await client.query(query, values);
             const dataTicket = result.rows[0];
-            await postTicketNumber(dataTicket.id)
+            await postTicketNumber(client, dataTicket.id)
             list_tickets.push(dataTicket);
-        }        
+        }
 
         //console.log(list_tickets);
         return `Se han añadido ${list_tickets.length} tickets al juego.`
 
     } catch (error) {
         console.log("Error at postTickets backend: ", error)
-        return "Error al generar tus tickets."
+        throw error;
     }
 }

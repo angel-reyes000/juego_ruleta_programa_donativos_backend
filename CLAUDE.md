@@ -126,7 +126,7 @@ Ambas operaciones esperan `amount` y `card_holder`; `paymentIntent` también exi
 | POST | `/api/postGames` | Sí/admin | Inserta juego (acepta `distribute_tickets` booleano, por defecto `false`), crea sus premios de `prize_list` y cinco rondas. |
 | PUT | `/api/updateGame` | Sí/admin | Actualiza `title`, fechas, capacidad, descripción y `distribute_tickets` por `gameId`. `distribute_tickets` solo cambia mientras el juego no tenga giros; después se ignora. Devuelve también `has_started`. |
 
-Al crear un juego, `postGames` llama a `postPrizes(gameID, prize_list)` y `postRounds(gameID)`. Esas llamadas son asíncronas y actualmente no se esperan (`await`); tenerlo presente al corregir consistencia o errores parciales.
+Al crear un juego, `postGames` abre una transacción e inserta el juego, `postPrizes(client, gameID, prize_list)` y `postRounds(client, gameID)` con el mismo cliente; si algo falla se hace `ROLLBACK` de todo (juego, premios y rondas). Los premios con ronda o número fuera de rango se siguen omitiendo sin abortar.
 
 ### Premios
 
@@ -206,7 +206,13 @@ El servidor Socket.IO permite el origen configurado en `API_KEY_FRONTEND`; Expre
 
 El esquema completo está en `database/001_create_tables.sql` y `database/002_querys.sql` (consultas útiles); en desarrollo no se guardan migraciones: los cambios de tablas se hacen directamente en `001_create_tables.sql` y la base se recrea a mano: el código de `postSpin`, `getTickets` y `getGameWinners` requiere estas columnas y tabla, y el índice único `spins(round_id, winning_number)` es opcional.
 
-Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evitar interpolar valores del usuario en SQL. Las operaciones relacionadas con donación, tickets y capacidad no están dentro de una transacción; una modificación que requiera atomicidad debe usar `pool.connect()`, `BEGIN`, `COMMIT` y `ROLLBACK`.
+Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evitar interpolar valores del usuario en SQL. Flujos transaccionales (`pool.connect()`, `BEGIN`, `COMMIT`, `ROLLBACK`; las funciones auxiliares reciben el `PoolClient` y relanzan errores para que se haga `ROLLBACK`):
+
+- `postDonation`: bloquea el juego activo con `FOR UPDATE` (serializa con `postSpin` y otras donaciones), valida que no haya iniciado, inserta la donación y `postTickets(client, ...)` crea tickets y su número (`postTicketNumber(client, ...)`). Un error en cualquier paso revierte todo y responde `400 "Error al procesar el pago."`. Los rechazos de negocio de `postTickets` (sin cupo, sin juego activo) no son errores: la donación se confirma y se devuelve el mensaje, como antes.
+- `postGames`: juego → premios → rondas.
+- `postSpin`: giro, número ganador, `game_winners`, `winning_tickets`, eliminación, reparto de capacidad y reasignación de números.
+
+El cobro de Stripe ocurre en el frontend antes de `createPayment`, por lo que no puede formar parte de la transacción de la base.
 
 ## Reglas para cambios
 
@@ -226,7 +232,7 @@ Las consultas usan placeholders `$1`, `$2`, etc. Mantener ese patrón para evita
 - `getUsers` devuelve todos los campos, potencialmente contraseñas hasheadas y datos personales.
 - Algunos controladores responden `400` para autorización, validación y errores internos; conservar compatibilidad al corregirlo o cambiarlo de forma coordinada.
 - Varias validaciones usan comprobaciones de truthiness, por lo que valores `0` pueden rechazarse aunque sean numéricamente válidos.
-- `postGames` y `postDonation` no garantizan atomicidad entre las inserciones relacionadas.
+- Si `createPayment` falla y hace `ROLLBACK`, el cargo de Stripe ya existe sin donación registrada (no hay webhook ni conciliación).
 - El número ganador y las reasignaciones usan `crypto.randomInt`; solo el número inicial de cada ticket (`postTicketNumber`) usa `Math.random()` y se reemplaza en el primer giro.
 - Los eventos Socket.IO (`spin`, `latestResults`, ...) no están autenticados: cualquier cliente puede emitirlos.
 - El juego debe seguir dentro de `start_datetime`-`end_datetime` mientras se gira, porque `getCurrentGame` filtra por ese rango.
