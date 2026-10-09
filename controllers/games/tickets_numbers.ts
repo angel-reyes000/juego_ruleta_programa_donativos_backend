@@ -1,8 +1,8 @@
 import { randomInt } from "node:crypto";
 import type { PoolClient } from "pg";
-import { pool } from "../../database/db.js";
 
-export async function postTicketNumber (ticket_id: number) {
+// Debe ejecutarse dentro de la transaccion del cliente recibido; si falla, relanza el error para que se haga ROLLBACK.
+export async function postTicketNumber (client: PoolClient, ticket_id: number) {
     try {
 
         if (!ticket_id) {
@@ -16,7 +16,7 @@ export async function postTicketNumber (ticket_id: number) {
 
         const values = [number_random, ticket_id];
 
-        const response = await pool.query(query, values);
+        const response = await client.query(query, values);
 
         const data = response.rows[0];
         //console.log("Dato del ticket", data);
@@ -25,6 +25,7 @@ export async function postTicketNumber (ticket_id: number) {
 
     } catch (error) {
         console.log("Error in postTicketNumber: ", error)
+        throw error;
     }
 }
 

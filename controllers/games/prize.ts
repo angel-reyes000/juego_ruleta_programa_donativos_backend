@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import type { PoolClient } from "pg";
 import { pool } from "../../database/db.js";
 
 interface RequestAuth extends Request {
@@ -94,10 +95,11 @@ export async function postPrize (req: RequestAuth, res: Response) {
 }
 
 //This function is called when the endpoint of postGame is called (Function inside of function postGame)
-export async function postPrizes (gameID: number, prize_list: Prize[]) {
+// Debe ejecutarse dentro de la transaccion del cliente recibido; si falla, relanza el error para que se haga ROLLBACK.
+export async function postPrizes (client: PoolClient, gameID: number, prize_list: Prize[]) {
     try {
 
-        if (prize_list.length === 0) {
+        if (!Array.isArray(prize_list) || prize_list.length === 0) {
             console.log("Length of prizes: 0, whitout problems")
             return 
         }
@@ -126,7 +128,7 @@ export async function postPrizes (gameID: number, prize_list: Prize[]) {
                 continue;
             }
 
-            const response = await pool.query(query, values);
+            const response = await client.query(query, values);
             const data = response.rows
             list_data.push(data)
         }
@@ -135,6 +137,7 @@ export async function postPrizes (gameID: number, prize_list: Prize[]) {
 
     } catch (error) {
         console.log("Error in postPrizes backend: ", error);
+        throw error;
     }
 }
 

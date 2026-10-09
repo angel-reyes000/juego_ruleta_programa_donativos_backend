@@ -54,7 +54,10 @@ export async function getCurrentGame (req: Request, res: Response) {
     }
 }
 
+// Juego -> premios -> rondas en una sola transaccion: si algo falla se hace ROLLBACK de todo.
 export async function postGames (req: RequestAuth, res: Response) {
+    const client = await pool.connect();
+
     try {
 
         const roleUser = req.user.role;
@@ -91,24 +94,31 @@ export async function postGames (req: RequestAuth, res: Response) {
 
         const values = [title, start_datetime, end_datetime, max_capacity, description, distribute_tickets];
 
-        const response = await pool.query(query, values);
+        await client.query("BEGIN");
+
+        const response = await client.query(query, values);
 
         const data = response.rows[0];
 
         const gameID = data.id;
 
-        postPrizes(gameID, prize_list);
-        postRounds(gameID)
+        await postPrizes(client, gameID, prize_list);
+        await postRounds(client, gameID)
+
+        await client.query("COMMIT");
 
         return res.status(200).json(
             data
         )
 
     } catch (error) {
+        await client.query("ROLLBACK").catch(() => undefined);
         console.log("Error in postGames backend: ", error)
         return res.status(400).json({
             "error": "Error al crear juego."
         })
+    } finally {
+        client.release();
     }
 }
 

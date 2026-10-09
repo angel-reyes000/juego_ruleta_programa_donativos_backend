@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import type { PoolClient } from "pg";
 import { pool } from "../../database/db.js";
 
 export async function getRounds (req: Request, res: Response) {
@@ -63,7 +64,8 @@ export async function getCurrentRoundGame (req: Request, res: Response) {
     }
 }
 
-export async function postRounds (game_id: number) {
+// Debe ejecutarse dentro de la transaccion del cliente recibido; si falla, relanza el error para que se haga ROLLBACK.
+export async function postRounds (client: PoolClient, game_id: number) {
     try {
         const query = `INSERT INTO rounds (number, spins, game_id)
                        VALUES ($1, $2, $3) RETURNING *`;
@@ -72,24 +74,24 @@ export async function postRounds (game_id: number) {
         for (let i = 1; i < 6; i++) {
             switch (i) {
                 case 1:
-                    const result_one = await pool.query(query, [i, 5, game_id])
+                    const result_one = await client.query(query, [i, 5, game_id])
                     list_rounds.push(result_one.rows[0])
                     break;
                 case 2:
-                    const result_two = await pool.query(query, [i, 4, game_id])
+                    const result_two = await client.query(query, [i, 4, game_id])
                     list_rounds.push(result_two.rows[0])
                     break;
                 case 3:
-                    const result_three = await pool.query(query, [i, 1, game_id])
+                    const result_three = await client.query(query, [i, 1, game_id])
                     list_rounds.push(result_three.rows[0])
                     break;
                 case 4:
-                    const result_four = await pool.query(query, [i, 1, game_id])
+                    const result_four = await client.query(query, [i, 1, game_id])
                     list_rounds.push(result_four.rows[0])
                     break;
                 case 5:
                     // 9 giros reales: el decimo numero restante se asigna automaticamente sin necesidad de girar.
-                    const result_five = await pool.query(query, [i, 9, game_id])
+                    const result_five = await client.query(query, [i, 9, game_id])
                     list_rounds.push(result_five.rows[0])
                     break;
             }
@@ -100,6 +102,6 @@ export async function postRounds (game_id: number) {
 
     } catch (error) {
         console.log("Error in postRounds: ", error)
-        return "Error al crear rondas del juego"
+        throw error;
     }
 }
