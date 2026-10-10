@@ -3,13 +3,7 @@ import { pool } from '../../database/db.js';
 import { postPrizes } from './prize.js';
 import { postRounds } from './round.js';
 
-interface RequestAuth extends Request {
-    user: {
-        role: string
-    }
-}
-
-export async function getGames (req: RequestAuth, res: Response) {
+export async function getGames (req: Request, res: Response) {
     try {
         const roleUser = req.user?.role;
 
@@ -55,12 +49,12 @@ export async function getCurrentGame (req: Request, res: Response) {
 }
 
 // Juego -> premios -> rondas en una sola transaccion: si algo falla se hace ROLLBACK de todo.
-export async function postGames (req: RequestAuth, res: Response) {
+export async function postGames (req: Request, res: Response) {
     const client = await pool.connect();
 
     try {
 
-        const roleUser = req.user.role;
+        const roleUser = req.user?.role;
         const { title, start_datetime, end_datetime, max_capacity, description, prize_list } = req.body;
         // Si no se envia, la reparticion de tickets queda desactivada.
         const distribute_tickets = typeof req.body.distribute_tickets === 'boolean' ? req.body.distribute_tickets : false;
@@ -122,9 +116,9 @@ export async function postGames (req: RequestAuth, res: Response) {
     }
 }
 
-export async function updateGame (req: RequestAuth, res: Response) {
+export async function updateGame (req: Request, res: Response) {
     try {
-        const roleUser = req.user.role;
+        const roleUser = req.user?.role;
         const { title, start_datetime, end_datetime, max_capacity, description, prize_list, gameId } = req.body;
         // undefined = no cambiar; una vez iniciado el juego el valor ya no se modifica.
         const distribute_tickets = typeof req.body.distribute_tickets === 'boolean' ? req.body.distribute_tickets : null;

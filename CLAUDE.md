@@ -56,6 +56,7 @@ controllers/
 	games/ticket.ts                 # Tickets y cierre de cupo (activeGameHasStarted)
 	games/tickets_numbers.ts        # Número de ticket y reasignación balanceada de números
 	games/winning_tickets.ts        # Historial de resultados y ganadores con premio (admin)
+types/auth.d.ts                   # AuthUser (payload del JWT) y augmentation de Express.Request con user?
 package.json                      # Dependencias y scripts
 package-lock.json                 # Versiones exactas de npm
 tsconfig.json                     # TypeScript estricto, módulo nodenext
@@ -88,9 +89,11 @@ Las rutas protegidas esperan:
 Authorization: Bearer <jwt>
 ```
 
-`auth` verifica el token y asigna el payload a `req.user`. Las operaciones administrativas comprueban `req.user.role === "admin"`. No crear otra estrategia de autenticación sin actualizar todos los controladores y este documento.
+`auth` verifica el token y asigna el payload a `req.user`. Las operaciones administrativas comprueban `req.user?.role === "admin"`. No crear otra estrategia de autenticación sin actualizar todos los controladores y este documento.
 
-Importante al modificar `auth`: cuando falta el token, actualmente envía `400` pero no hace `return`; una petición sin token puede continuar hasta el intento de verificación. Si se corrige, preservar una única respuesta y usar un código coherente en todas las rutas.
+Tipado: `types/auth.d.ts` extiende el `Request` global de Express con `user?: AuthUser`. Los controladores y `auth` usan `Request` de Express directamente; no declarar interfaces `RequestAuth` locales (con `user` obligatorio no son asignables a un handler de Express y rompen la compilación). Como `user` es opcional, leerlo con `req.user?.` o validar antes de usar `id`. Si cambia el payload firmado en `loginUser`, actualizar `AuthUser`.
+
+`auth` responde `400` (con `return`) si falta el token, si es inválido/expirado o si el payload no es un objeto.
 
 ## API HTTP
 

@@ -3,12 +3,6 @@ import Stripe from "stripe"
 import { pool } from "../../database/db.js"
 import { activeGameHasStarted, postTickets } from "../games/ticket.js"
 
-interface RequestAuth extends Request {
-    user: {
-        id: number
-    }
-}
-
 export async function paymentIntent (req: Request, res: Response) {
     try {
 
@@ -89,7 +83,7 @@ export async function paymentIntent (req: Request, res: Response) {
 }
 
 // Donacion -> tickets -> numeros de ticket en una sola transaccion: si algo falla se hace ROLLBACK de todo.
-export async function postDonation (req: RequestAuth, res: Response) {
+export async function postDonation (req: Request, res: Response) {
     const client = await pool.connect();
 
     try {
@@ -98,6 +92,14 @@ export async function postDonation (req: RequestAuth, res: Response) {
         if (!token) {
             return res.status(400).json({
                 "error": "no token"
+            })
+        }
+
+        const user_id = req.user?.id;
+
+        if (!user_id) {
+            return res.status(400).json({
+                "error": "Usuario no encontrado"
             })
         }
 
@@ -154,8 +156,6 @@ export async function postDonation (req: RequestAuth, res: Response) {
                 "error": "El sorteo ya inicio, ya no se aceptan donativos para este juego."
             })
         }
-
-        const user_id = req.user?.id;
 
         const query = `INSERT INTO donations (user_id, amount, card_holder, salesperson_id)
                         VALUES ($1, $2, $3, $4) RETURNING *`;

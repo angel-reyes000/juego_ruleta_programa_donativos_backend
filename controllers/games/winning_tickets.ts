@@ -40,16 +40,10 @@ export async function getWinningTickets(req: Request, res: Response) {
     }
 }
 
-interface RequestAuth extends Request {
-    user: {
-        role: string
-    }
-}
-
 // Solo admin: ganadores de la ronda 5 (premiados finales), un renglon por usuario y giro (con su cantidad de tickets ganadores).
-export async function getGameWinners(req: RequestAuth, res: Response) {
+export async function getGameWinners(req: Request, res: Response) {
     try {
-        if (req.user.role !== 'admin') {
+        if (req.user?.role !== 'admin') {
             return res.status(400).json({
                 "error": "No tienes permitido consultar ganadores."
             })

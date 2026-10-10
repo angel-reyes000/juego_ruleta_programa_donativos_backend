@@ -1,10 +1,6 @@
 import type { Request, Response } from "express"
 
-interface RequestAuth extends Request {
-    user: string
-}
-
-export async function getDataUser (req: RequestAuth, res: Response) {
+export async function getDataUser (req: Request, res: Response) {
     try {
         const user = req.user;
 

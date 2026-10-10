@@ -2,12 +2,6 @@ import type { Request, Response } from "express";
 import type { PoolClient } from "pg";
 import { pool } from "../../database/db.js";
 
-interface RequestAuth extends Request {
-    user: {
-        role: string
-    }
-}
-
 export interface Prize {
     name: string
     type: string
@@ -16,9 +10,9 @@ export interface Prize {
     roulette_number: number
 }
 
-export async function getPrizes (req: RequestAuth, res: Response) {
+export async function getPrizes (req: Request, res: Response) {
     try {
-        //const roleUser = req.user.role;
+        //const roleUser = req.user?.role;
         const { gameId } = req.query;
 
         // if (roleUser !== 'admin') {
@@ -46,10 +40,10 @@ export async function getPrizes (req: RequestAuth, res: Response) {
     }
 }
 
-export async function postPrize (req: RequestAuth, res: Response) {
+export async function postPrize (req: Request, res: Response) {
     try {
 
-        const roleUser = req.user.role;
+        const roleUser = req.user?.role;
 
         if (roleUser !== 'admin') {
             return res.status(400).json({
@@ -141,9 +135,9 @@ export async function postPrizes (client: PoolClient, gameID: number, prize_list
     }
 }
 
-export async function deletePrize (req: RequestAuth, res: Response) {
+export async function deletePrize (req: Request, res: Response) {
     try {
-        const roleUser = req.user.role;
+        const roleUser = req.user?.role;
 
         if (roleUser !== 'admin') {
             return res.status(400).json({
