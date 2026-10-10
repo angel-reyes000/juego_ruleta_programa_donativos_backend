@@ -4,12 +4,6 @@ import { pool } from "../../database/db.js";
 import { reassignActiveTicketNumbers } from "./tickets_numbers.js";
 import { fillGameCapacity } from "./ticket.js";
 
-interface RequestAuth extends Request {
-    user: {
-        role: string
-    }
-}
-
 export async function getSpins (round_ids: Array<number>) {
     try {
         const query = `SELECT * FROM spins WHERE round_id IN ($1, $2, $3, $4, $5)`;
@@ -22,12 +16,12 @@ export async function getSpins (round_ids: Array<number>) {
     }
 }
 
-export async function postSpin (req: RequestAuth, res: Response) {
+export async function postSpin (req: Request, res: Response) {
     const client = await pool.connect();
 
     try {
 
-        const roleUser = req.user.role;
+        const roleUser = req.user?.role;
 
         if (roleUser !== 'admin') {
             return res.status(400).json({

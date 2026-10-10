@@ -1,8 +1,9 @@
 import { pool } from '../../database/db.js';
 import type { NextFunction, Request, Response } from 'express'; 
 import bcrypt from 'bcrypt';
-import jsonwebtoken, { type JwtPayload } from 'jsonwebtoken'; 
+import jsonwebtoken from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import type { AuthUser } from '../../types/auth.js';
 
 dotenv.config();
 
@@ -12,10 +13,6 @@ interface User <T> {
     email: T
     password: T 
     phone_number: T
-}
-
-interface RequestAuth extends Request {
-    user: string | JwtPayload
 }
 
 export async function getUsers (req: Request, res: Response) {
@@ -176,21 +173,27 @@ export async function loginUser (req: Request, res: Response) {
     }
 }
 
-export async function auth (req: RequestAuth, res: Response, next: NextFunction) {
+export async function auth (req: Request, res: Response, next: NextFunction) {
     try {
         const token: string | undefined = req.headers.authorization?.split(" ")[1];
 
-        console.log(token)
-
         if (!token) {
-            res.status(400).json({
+            return res.status(400).json({
                 "error": "No token"
             })
         }
 
         try {
-            const decoded = jsonwebtoken.verify(token!, process.env.JWT_SECRET!)
-            req.user = decoded;
+            const decoded = jsonwebtoken.verify(token, process.env.JWT_SECRET!)
+
+            // loginUser siempre firma un objeto; un payload string no es un token valido de esta app.
+            if (typeof decoded === "string") {
+                return res.status(400).json({
+                    "error": "Tu sesion a expirado."
+                })
+            }
+
+            req.user = decoded as AuthUser;
             next()
         } catch (error) {
             console.log("Error at validate token: ", error)

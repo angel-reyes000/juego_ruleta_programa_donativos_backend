@@ -5,17 +5,10 @@ import { error } from "node:console";
 import { randomInt } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 
-interface RequestAuth extends Request {
-    user: {
-        id?: number
-        role: string
-    }
-}
-
-export async function getTickets (req: RequestAuth, res: Response) {
+export async function getTickets (req: Request, res: Response) {
     try {
 
-        const user_id = req.user.id;
+        const user_id = req.user?.id;
 
         if (!user_id) {
             return res.status(400).json({
